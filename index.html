@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0c0a08">
+<title>LumpiaPOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0a08; --bg2: #1a1714; --bg3: #252118; --bg4: #302a20;
+  --amber: #f0a030; --amber2: #d48a20; --amber-dim: #a06810;
+  --text: #f5f0e8; --text2: #c8c0b0; --text3: #887860;
+  --green: #40c870; --red: #e84040; --blue: #4090e8;
+  --radius: 12px; --radius-sm: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Nunito',sans-serif; background:var(--bg); color:var(--text); overflow:hidden; height:100vh; }
+h1,h2,h3,.syne { font-family:'Syne',sans-serif; }
+.mono { font-family:'DM Mono',monospace; }
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--bg4); border-radius:3px; }
+input,select,textarea,button { font-family:inherit; font-size:inherit; }
+input,select,textarea { background:var(--bg); border:1px solid var(--bg4); color:var(--text); padding:8px 12px; border-radius:var(--radius-sm); outline:none; }
+input:focus,select:focus,textarea:focus { border-color:var(--amber); }
+button { cursor:pointer; border:none; background:none; color:var(--text); }
+.btn { padding:8px 18px; border-radius:var(--radius-sm); font-weight:600; transition:all .15s; }
+.btn-amber { background:var(--amber); color:#000; }
+.btn-amber:hover { background:var(--amber2); }
+.btn-ghost { border:1px solid var(--bg4); }
+.btn-ghost:hover { border-color:var(--amber); color:var(--amber); }
+.btn-red { background:var(--red); color:#fff; }
+.btn-red:hover { opacity:.85; }
+.btn-green { background:var(--green); color:#000; }
+.badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+.badge-green { background:rgba(64,200,112,.15); color:var(--green); }
+.badge-red { background:rgba(232,64,64,.15); color:var(--red); }
+.badge-amber { background:rgba(240,160,48,.15); color:var(--amber); }
+.card { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:20px; }
+.card-title { font-family:'Syne',sans-serif; font-size:14px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; position:sticky; top:0; background:var(--bg2); z-index:2; padding:4px 0; }
+table { width:100%; border-collapse:collapse; }
+th { font-family:'DM Mono',monospace; font-size:12px; color:var(--text3); text-transform:uppercase; text-align:left; padding:8px 12px; border-bottom:1px solid var(--bg3); position:sticky; top:0; background:var(--bg2); z-index:1; }
+td { padding:8px 12px; border-bottom:1px solid var(--bg3); font-size:14px; }
+tr:hover td { background:var(--bg3); }
+.toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+.toast { padding:12px 20px; border-radius:var(--radius-sm); font-size:14px; font-weight:600; animation:slideIn .3s; min-width:250px; }
+.toast-success { background:var(--green); color:#000; }
+.toast-error { background:var(--red); color:#fff; }
+.toast-info { background:var(--amber); color:#000; }
+@keyframes slideIn { from{transform:translateX(100px);opacity:0} to{transform:translateX(0);opacity:1} }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000; display:flex; align-items:center; justify-content:center; }
+.modal { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:24px; max-width:500px; width:90%; max-height:80vh; overflow-y:auto; }
+.modal h3 { margin-bottom:16px; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:13px; color:var(--text3); margin-bottom:4px; font-family:'DM Mono',monospace; }
+.form-group input,.form-group select,.form-group textarea { width:100%; }
+.form-row { display:flex; gap:8px; }
+.form-row > * { flex:1; }
+
+/* Login */
+#loginScreen { position:fixed; inset:0; background:var(--bg); z-index:10000; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:24px; }
+#loginScreen .login-box { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:40px; width:360px; text-align:center; }
+#loginScreen h1 { font-size:32px; color:var(--amber); margin-bottom:8px; }
+#loginScreen .subtitle { color:var(--text3); margin-bottom:24px; }
+#loginScreen .form-group { text-align:left; }
+#loginScreen .btn { width:100%; padding:12px; font-size:16px; margin-top:8px; }
+
+/* Layout */
+#app { display:none; height:100vh; }
+.sidebar { width:220px; background:var(--bg2); border-right:1px solid var(--bg3); display:flex; flex-direction:column; height:100vh; flex-shrink:0; }
+.sidebar-brand { padding:20px; border-bottom:1px solid var(--bg3); }
+.sidebar-brand h2 { font-size:20px; color:var(--amber); }
+.sidebar-brand small { color:var(--text3); font-size:11px; }
+.sidebar-nav { flex:1; padding:12px; overflow-y:auto; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:var(--radius-sm); cursor:pointer; color:var(--text2); font-weight:600; font-size:14px; transition:all .15s; margin-bottom:2px; }
+.nav-item:hover { background:var(--bg3); color:var(--text); }
+.nav-item.active { background:var(--amber); color:#000; }
+.nav-item svg { width:18px; height:18px; flex-shrink:0; }
+.sidebar-footer { padding:12px; border-top:1px solid var(--bg3); }
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.topbar { padding:16px 24px; border-bottom:1px solid var(--bg3); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+.topbar h1 { font-size:22px; }
+.page-content { flex:1; overflow-y:auto; padding:24px; }
+.page { display:none; height:100%; }
+.page.active { display:flex; flex-direction:column; }
+
+/* Cashier */
+.cashier-wrap { display:flex; gap:24px; height:100%; overflow:hidden; }
+.menu-grid-wrap { flex:1; overflow-y:auto; }
+.menu-categories { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+.cat-btn { padding:6px 16px; border-radius:20px; font-size:13px; font-weight:700; background:var(--bg3); cursor:pointer; transition:all .15s; }
+.cat-btn.active { background:var(--amber); color:#000; }
+.menu-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
+.menu-card { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:12px; cursor:pointer; transition:all .15s; text-align:center; }
+.menu-card:hover { border-color:var(--amber); transform:translateY(-2px); }
+.menu-card .icon { font-size:32px; margin-bottom:6px; }
+.menu-card img { width:80px; height:80px; object-fit:cover; border-radius:var(--radius-sm); margin-bottom:6px; }
+.menu-card .name { font-weight:700; font-size:13px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.menu-card .price { font-family:'DM Mono',monospace; color:var(--amber); font-size:13px; }
+.cart-panel { width:360px; background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; }
+.cart-header { padding:16px; border-bottom:1px solid var(--bg3); display:flex; justify-content:space-between; align-items:center; }
+.cart-items { flex:1; overflow-y:auto; padding:8px 16px; }
+.cart-item { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--bg3); }
+.cart-item .info { flex:1; }
+.cart-item .info .name { font-weight:700; font-size:13px; }
+.cart-item .info .price { font-family:'DM Mono',monospace; color:var(--amber); font-size:12px; }
+.cart-qty { display:flex; align-items:center; gap:6px; }
+.cart-qty button { width:26px; height:26px; border-radius:50%; background:var(--bg4); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; }
+.cart-qty span { font-family:'DM Mono',monospace; min-width:20px; text-align:center; }
+.cart-item .remove-btn { color:var(--red); cursor:pointer; font-size:18px; }
+.cart-footer { padding:16px; border-top:1px solid var(--bg3); }
+.cart-total { display:flex; justify-content:space-between; font-size:18px; font-weight:700; margin-bottom:12px; }
+.cart-total .amount { font-family:'DM Mono',monospace; color:var(--amber); }
+.payment-methods { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+.pay-btn { padding:6px 12px; border-radius:var(--radius-sm); font-size:12px; font-weight:700; background:var(--bg); border:1px solid var(--bg4); cursor:pointer; transition:all .15s; }
+.pay-btn.active { border-color:var(--amber); color:var(--amber); background:rgba(240,160,48,.1); }
+.place-order-btn { width:100%; padding:14px; font-size:16px; }
+.cart-note { width:100%; margin-bottom:8px; font-size:13px; }
+
+/* Stock */
+.stock-actions { display:flex; gap:8px; margin-bottom:16px; }
+.stock-table-wrap { overflow:auto; flex:1; }
+.low-stock { color:var(--red); font-weight:700; }
+
+/* Menu Management */
+.menu-mgmt-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+.menu-mgmt-card { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); overflow:hidden; }
+.menu-mgmt-card .img-area { height:140px; background:var(--bg3); display:flex; align-items:center; justify-content:center; font-size:48px; position:relative; overflow:hidden; cursor:pointer; }
+.menu-mgmt-card .img-area img { width:100%; height:100%; object-fit:cover; }
+.menu-mgmt-card .img-area .overlay { position:absolute; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .2s; color:var(--amber); font-weight:700; }
+.menu-mgmt-card .img-area:hover .overlay { opacity:1; }
+.menu-mgmt-card .body { padding:14px; }
+.menu-mgmt-card .body h3 { font-size:16px; margin-bottom:4px; }
+.menu-mgmt-card .body .cat { font-size:12px; color:var(--text3); margin-bottom:8px; }
+.menu-mgmt-card .prices { display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:12px; }
+.menu-mgmt-card .prices span { font-family:'DM Mono',monospace; }
+.menu-mgmt-card .actions { padding:12px 14px; border-top:1px solid var(--bg3); display:flex; gap:8px; }
+
+/* COGS */
+.cogs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+.cogs-card { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:16px; }
+.cogs-card h3 { display:flex; justify-content:space-between; margin-bottom:12px; }
+.cogs-card .total { font-family:'DM Mono',monospace; color:var(--amber); }
+
+/* Ledger */
+.ledger-wrap { display:flex; gap:24px; height:100%; overflow:hidden; }
+.ledger-main { flex:1; overflow-y:auto; }
+.ledger-sidebar { width:300px; overflow-y:auto; flex-shrink:0; }
+.money-box { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:16px; margin-bottom:12px; }
+.money-box h4 { font-size:12px; color:var(--text3); text-transform:uppercase; margin-bottom:8px; }
+.money-box .amount { font-family:'DM Mono',monospace; font-size:24px; font-weight:700; }
+.money-box .detail { font-size:12px; color:var(--text3); margin-top:4px; }
+.money-box .detail span { font-family:'DM Mono',monospace; }
+
+/* Orders */
+.orders-filters { display:flex; gap:12px; margin-bottom:16px; align-items:center; flex-wrap:wrap; }
+.orders-table-wrap { overflow:auto; flex:1; }
+
+/* Reports */
+.report-tabs { display:flex; gap:8px; margin-bottom:16px; }
+.report-tab { padding:8px 20px; border-radius:20px; font-weight:700; cursor:pointer; background:var(--bg3); transition:all .15s; }
+.report-tab.active { background:var(--amber); color:#000; }
+.report-content { overflow-y:auto; flex:1; }
+.report-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:20px; }
+.stat-card { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:16px; }
+.stat-card .label { font-size:12px; color:var(--text3); text-transform:uppercase; margin-bottom:4px; }
+.stat-card .value { font-family:'DM Mono',monospace; font-size:22px; font-weight:700; }
+.stat-card .sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.stat-card.green .value { color:var(--green); }
+.stat-card.red .value { color:var(--red); }
+.stat-card.amber .value { color:var(--amber); }
+
+/* Settings */
+.settings-sections { display:flex; flex-direction:column; gap:20px; max-width:700px; }
+.settings-section { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:20px; }
+.settings-section h3 { font-size:16px; margin-bottom:12px; color:var(--amber); }
+.danger-zone { border-color:var(--red) !important; }
+.danger-zone h3 { color:var(--red) !important; }
+.changelog-list { max-height:300px; overflow-y:auto; }
+.changelog-item { padding:8px 0; border-bottom:1px solid var(--bg3); font-size:13px; }
+.changelog-item .ver { font-family:'DM Mono',monospace; color:var(--amber); }
+
+@media(max-width:900px) {
+  .sidebar { width:60px; }
+  .sidebar-brand h2,.sidebar-brand small,.nav-item span,.sidebar-footer { display:none; }
+  .nav-item { justify-content:center; padding:12px; }
+  .cashier-wrap { flex-direction:column; }
+  .cart-panel { width:100%; max-height:45vh; }
+  .ledger-wrap { flex-direction:column; }
+  .ledger-sidebar { width:100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1 class="syne">LumpiaPOS</h1>
+    <p class="subtitle mono">Point of Sale System</p>
+    <div class="form-group">
+      <label>Branch</label>
+      <select id="loginBranch">
+        <option value="">Select branch...</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Enter password">
+    </div>
+    <button class="btn btn-amber" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <p id="loginError" style="color:var(--red);margin-top:12px;font-size:13px;display:none"></p>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none;flex-direction:row;">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <h2>LumpiaPOS</h2>
+      <small class="mono" id="branchLabel"></small>
+    </div>
+    <div class="sidebar-nav" id="sidebarNav"></div>
+    <div class="sidebar-footer">
+      <div class="nav-item" onclick="doLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Logout</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1 class="syne" id="pageTitle">Cashier</h1>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="mono" style="font-size:12px;color:var(--text3)" id="syncStatus"></span>
+        <button class="btn btn-ghost" onclick="syncAll()" title="Sync">&#x21bb; Sync</button>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <!-- Page: Cashier -->
+      <div class="page active" id="pageCashier">
+        <div class="cashier-wrap">
+          <div class="menu-grid-wrap">
+            <div class="menu-categories" id="cashierCategories"></div>
+            <div class="menu-grid" id="cashierMenuGrid"></div>
+          </div>
+          <div class="cart-panel">
+            <div class="cart-header">
+              <h3 class="syne">Cart</h3>
+              <button class="btn btn-ghost" onclick="clearCart()" style="font-size:12px">Clear</button>
+            </div>
+            <div class="cart-items" id="cartItems"></div>
+            <div class="cart-footer">
+              <textarea class="cart-note" id="cartNote" rows="1" placeholder="Note..."></textarea>
+              <div class="cart-total">
+                <span>Total</span>
+                <span class="amount" id="cartTotal">Rp 0</span>
+              </div>
+              <div class="payment-methods" id="paymentMethods"></div>
+              <button class="btn btn-amber place-order-btn" id="placeOrderBtn" onclick="placeOrder()">Place Order</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: Stock -->
+      <div class="page" id="pageStock">
+        <div class="stock-actions">
+          <button class="btn btn-amber" onclick="showIngredientModal()">+ Add Ingredient</button>
+        </div>
+        <div class="stock-table-wrap">
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Stock</th><th>Min</th><th>Unit</th><th>Pack</th><th>Cost/Unit</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="stockTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Page: Menu -->
+      <div class="page" id="pageMenu">
+        <div style="margin-bottom:16px">
+          <button class="btn btn-amber" onclick="showMenuModal()">+ Add Menu Item</button>
+        </div>
+        <div class="menu-mgmt-grid" id="menuMgmtGrid"></div>
+      </div>
+
+      <!-- Page: COGS -->
+      <div class="page" id="pageCOGS">
+        <div class="cogs-grid" id="cogsGrid"></div>
+      </div>
+
+      <!-- Page: Cash Flow -->
+      <div class="page" id="pageLedger">
+        <div class="ledger-wrap">
+          <div class="ledger-main">
+            <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center">
+              <button class="btn btn-amber" onclick="showLedgerModal('Income')">+ Income</button>
+              <button class="btn btn-ghost" onclick="showLedgerModal('Expense')">+ Expense</button>
+              <input type="date" id="ledgerDateFilter" onchange="renderLedger()" style="margin-left:auto">
+            </div>
+            <table>
+              <thead><tr><th>Time</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Payment</th><th></th></tr></thead>
+              <tbody id="ledgerTableBody"></tbody>
+            </table>
+          </div>
+          <div class="ledger-sidebar" id="ledgerSidebar"></div>
+        </div>
+      </div>
+
+      <!-- Page: Orders -->
+      <div class="page" id="pageOrders">
+        <div class="orders-filters">
+          <input type="date" id="ordersDateFrom" onchange="renderOrders()">
+          <span style="color:var(--text3)">to</span>
+          <input type="date" id="ordersDateTo" onchange="renderOrders()">
+          <select id="ordersStatusFilter" onchange="renderOrders()">
+            <option value="">All Status</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="orders-table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Date</th><th>Time</th><th>Payment</th><th>Total</th><th>Status</th><th>Note</th><th></th></tr></thead>
+            <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Page: Reports -->
+      <div class="page" id="pageReports">
+        <div class="report-tabs">
+          <div class="report-tab active" onclick="switchReportTab('daily')">Daily</div>
+          <div class="report-tab" onclick="switchReportTab('monthly')">Monthly</div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center">
+          <input type="date" id="reportDate" onchange="renderReport()">
+          <input type="month" id="reportMonth" onchange="renderReport()" style="display:none">
+        </div>
+        <div class="report-content" id="reportContent"></div>
+      </div>
+
+      <!-- Page: Settings -->
+      <div class="page" id="pageSettings">
+        <div class="settings-sections">
+          <div class="settings-section">
+            <h3>API Configuration</h3>
+            <div class="form-group">
+              <label>Script URL</label>
+              <input type="url" id="settingScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%">
+            </div>
+            <button class="btn btn-amber" onclick="saveScriptUrl()" style="margin-top:4px">Save Script URL</button>
+          </div>
+          <div class="settings-section">
+            <h3>GitHub Image Storage</h3>
+            <div class="form-group">
+              <label>Repository (user/repo)</label>
+              <input id="settingGhRepo" placeholder="username/repo" style="width:100%">
+            </div>
+            <div class="form-group">
+              <label>Token (PAT — stored locally only)</label>
+              <input id="settingGhToken" type="password" placeholder="ghp_..." style="width:100%">
+            </div>
+            <button class="btn btn-amber" onclick="saveGitHubSettings()">Save GitHub Settings</button>
+          </div>
+          <div class="settings-section">
+            <h3>Tax</h3>
+            <div class="form-group">
+              <label>Tax Rate (%)</label>
+              <input type="number" id="settingTaxRate" value="0" min="0" max="100" style="width:120px">
+            </div>
+            <button class="btn btn-amber" onclick="saveTaxRate()">Save Tax</button>
+          </div>
+          <div class="settings-section">
+            <h3>Export CSV</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" onclick="exportCSV('orders')">Orders</button>
+              <button class="btn btn-ghost" onclick="exportCSV('stock')">Stock</button>
+              <button class="btn btn-ghost" onclick="exportCSV('ledger')">Ledger</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Push Local Data to Cloud</h3>
+            <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Upload all local data to cloud. Skips duplicates by ID.</p>
+            <button class="btn btn-amber" onclick="pushLocalToCloud()" id="pushBtn">Push to Cloud</button>
+          </div>
+          <div class="settings-section">
+            <h3>Version & Changelog</h3>
+            <p class="mono" style="font-size:14px;color:var(--amber);margin-bottom:12px" id="versionLabel"></p>
+            <div class="changelog-list" id="changelogList"></div>
+          </div>
+          <div class="settings-section danger-zone">
+            <h3>Danger Zone</h3>
+            <button class="btn btn-red" onclick="clearLocalCache()">Clear Local Cache</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// LumpiaPOS — Frontend Application
+// ============================================================
+
+const APP_VERSION = '1.0.0';
+const CHANGELOG = [
+  { ver:'1.0.0', date:'2026-05-12', msg:'Initial release — Cashier, Stock, Menu, COGS, Cash Flow, Orders, Reports, Settings' },
+];
+
+const DEFAULT_SCRIPT_URL = '';
+
+const PAYMENT_METHODS = ['Cash','DANA','GoFood','ShopeeFood','GoPay','Grab'];
+const QRIS_METHODS = ['DANA','GoFood','ShopeeFood','GoPay','Grab'];
+
+const PAGES = [
+  { id:'Cashier',  icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M8 15h2M14 15h2"/></svg>' },
+  { id:'Stock',    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>' },
+  { id:'Menu',     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg>' },
+  { id:'COGS',     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>' },
+  { id:'Ledger',   label:'Cash Flow', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>' },
+  { id:'Orders',   icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>' },
+  { id:'Reports',  icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>' },
+  { id:'Settings', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>' },
+];
+
+// ---- State ----
+const APP = {
+  branch: '', password: '', scriptUrl: '', taxRate: 0,
+  ghRepo: '', ghToken: '',
+  menu: [], ingredients: [], recipes: [], orders: [], orderItems: [], ledger: [], stockLog: [],
+  cart: [], selectedPayment: 'Cash', currentPage: 'Cashier',
+  _ordering: false, reportTab: 'daily',
+};
+
+// ---- Helpers ----
+function rp(n) {
+  return 'Rp ' + Math.round(Number(n)||0).toLocaleString('id-ID');
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function nowTime() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+}
+
+function normalizeDate(s) {
+  if (!s) return '';
+  return String(s).split('T')[0];
+}
+
+function generateId(prefix) {
+  return prefix + '-' + Date.now() + '-' + Math.random().toString(36).substr(2,5);
+}
+
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function storageKey(k) { return 'lpos_' + APP.branch + '_' + k; }
+function imageStorageKey() { return 'mb_menu_images_' + APP.branch; }
+
+function saveLocal(key, data) {
+  try { localStorage.setItem(storageKey(key), JSON.stringify(data)); } catch(e) {}
+}
+function loadLocal(key) {
+  try { return JSON.parse(localStorage.getItem(storageKey(key))) || []; } catch(e) { return []; }
+}
+
+function getLocalImages() {
+  try { return JSON.parse(localStorage.getItem(imageStorageKey())) || {}; } catch(e) { return {}; }
+}
+function saveLocalImages(obj) {
+  try { localStorage.setItem(imageStorageKey(), JSON.stringify(obj)); } catch(e) {}
+}
+
+function getMenuImage(menuId) {
+  const imgs = getLocalImages();
+  if (imgs[menuId]) return imgs[menuId];
+  const m = APP.menu.find(x => x.id === menuId);
+  if (m && m.image) return m.image + '?v=' + Date.now();
+  return '';
+}
+
+function getMenuPrice(m, payment) {
+  const key = 'price_' + payment.toLowerCase().replace(/food$/,'food').replace(/pay$/,'pay');
+  const specific = Number(m[key]);
+  return specific > 0 ? specific : Number(m.price_cash) || 0;
+}
+
+// ---- API ----
+async function apiSync(action, extra={}) {
+  const url = APP.scriptUrl;
+  if (!url) { toast('Script URL not set', 'error'); return null; }
+  const payload = { action, branch: APP.branch, password: APP.password, ...extra };
+  try {
+    const encoded = encodeURIComponent(JSON.stringify(payload));
+    const resp = await fetch(url + '?payload=' + encoded, { redirect:'follow' });
+    const data = await resp.json();
+    if (!data.ok) { toast(data.error || 'API error', 'error'); return null; }
+    return data;
+  } catch(e) {
+    toast('Sync failed: ' + e.message, 'error');
+    return null;
+  }
+}
+
+async function syncAll() {
+  document.getElementById('syncStatus').textContent = 'Syncing...';
+  const resp = await apiSync('syncAll');
+  if (resp && resp.data) {
+    applyRemote(resp.data);
+    document.getElementById('syncStatus').textContent = 'Synced ' + new Date().toLocaleTimeString();
+    toast('Synced!', 'success');
+  } else {
+    document.getElementById('syncStatus').textContent = 'Sync failed';
+  }
+}
+
+function applyRemote(data) {
+  const localImages = getLocalImages();
+  if (data.menu) { APP.menu = data.menu; saveLocal('menu', APP.menu); }
+  if (data.ingredients) { APP.ingredients = data.ingredients; saveLocal('ingredients', APP.ingredients); }
+  if (data.recipes) { APP.recipes = data.recipes; saveLocal('recipes', APP.recipes); }
+  if (data.orders) { APP.orders = data.orders; saveLocal('orders', APP.orders); }
+  if (data.orderItems) { APP.orderItems = data.orderItems; saveLocal('orderItems', APP.orderItems); }
+  if (data.ledger) { APP.ledger = data.ledger; saveLocal('ledger', APP.ledger); }
+  if (data.stockLog) { APP.stockLog = data.stockLog; saveLocal('stockLog', APP.stockLog); }
+  if (data.settings) {
+    if (data.settings.scriptUrl) {
+      APP.scriptUrl = data.settings.scriptUrl;
+      localStorage.setItem('lpos_scriptUrl', APP.scriptUrl);
+    }
+    if (data.settings.ghRepo) {
+      APP.ghRepo = data.settings.ghRepo;
+      localStorage.setItem('lpos_ghRepo', APP.ghRepo);
+    }
+    if (data.settings.taxRate !== undefined) {
+      APP.taxRate = Number(data.settings.taxRate) || 0;
+      localStorage.setItem('lpos_taxRate', APP.taxRate);
+    }
+  }
+  saveLocalImages(localImages);
+  renderCurrentPage();
+}
+
+function loadLocalData() {
+  APP.menu = loadLocal('menu');
+  APP.ingredients = loadLocal('ingredients');
+  APP.recipes = loadLocal('recipes');
+  APP.orders = loadLocal('orders');
+  APP.orderItems = loadLocal('orderItems');
+  APP.ledger = loadLocal('ledger');
+  APP.stockLog = loadLocal('stockLog');
+}
+
+// ---- Login ----
+function initLogin() {
+  const sel = document.getElementById('loginBranch');
+  const branches = ['Lumpia Pusat','Lumpia Cabang 1'];
+  branches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b; opt.textContent = b;
+    sel.appendChild(opt);
+  });
+  const saved = localStorage.getItem('lpos_lastBranch');
+  const savedPw = localStorage.getItem('lpos_lastPassword');
+  if (saved) sel.value = saved;
+  if (savedPw) document.getElementById('loginPassword').value = savedPw;
+}
+
+async function doLogin() {
+  const branch = document.getElementById('loginBranch').value;
+  const pw = document.getElementById('loginPassword').value;
+  if (!branch || !pw) { toast('Select branch and enter password', 'error'); return; }
+
+  APP.branch = branch;
+  APP.password = pw;
+  APP.scriptUrl = localStorage.getItem('lpos_scriptUrl') || DEFAULT_SCRIPT_URL;
+  APP.ghRepo = localStorage.getItem('lpos_ghRepo') || '';
+  APP.ghToken = localStorage.getItem('lpos_ghToken') || '';
+  APP.taxRate = Number(localStorage.getItem('lpos_taxRate')) || 0;
+
+  loadLocalData();
+
+  document.getElementById('loginBtn').textContent = 'Signing in...';
+  document.getElementById('loginBtn').disabled = true;
+
+  if (APP.scriptUrl) {
+    const resp = await apiSync('login');
+    if (!resp) {
+      document.getElementById('loginError').style.display = 'block';
+      document.getElementById('loginError').textContent = 'Login failed. Check credentials.';
+      document.getElementById('loginBtn').textContent = 'Sign In';
+      document.getElementById('loginBtn').disabled = false;
+      return;
+    }
+    await syncAll();
+  }
+
+  localStorage.setItem('lpos_lastBranch', branch);
+  localStorage.setItem('lpos_lastPassword', pw);
+  launchApp();
+}
+
+function launchApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('branchLabel').textContent = APP.branch;
+  buildSidebar();
+  loadSettingsUI();
+  navigateTo('Cashier');
+}
+
+function doLogout() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginBtn').textContent = 'Sign In';
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('loginError').style.display = 'none';
+  APP.cart = [];
+}
+
+// ---- Navigation ----
+function buildSidebar() {
+  const nav = document.getElementById('sidebarNav');
+  nav.innerHTML = '';
+  PAGES.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'nav-item' + (p.id === APP.currentPage ? ' active' : '');
+    div.innerHTML = p.icon + '<span>' + (p.label || p.id) + '</span>';
+    div.onclick = () => navigateTo(p.id);
+    nav.appendChild(div);
+  });
+}
+
+function navigateTo(pageId) {
+  APP.currentPage = pageId;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page' + pageId).classList.add('active');
+  document.getElementById('pageTitle').textContent = PAGES.find(p=>p.id===pageId)?.label || pageId;
+  document.querySelectorAll('.nav-item').forEach((el,i) => {
+    el.classList.toggle('active', PAGES[i]?.id === pageId);
+  });
+  renderCurrentPage();
+}
+
+function renderCurrentPage() {
+  switch(APP.currentPage) {
+    case 'Cashier': renderCashier(); break;
+    case 'Stock': renderStock(); break;
+    case 'Menu': renderMenuMgmt(); break;
+    case 'COGS': renderCOGS(); break;
+    case 'Ledger': renderLedger(); break;
+    case 'Orders': renderOrders(); break;
+    case 'Reports': renderReport(); break;
+    case 'Settings': loadSettingsUI(); break;
+  }
+}
+
+// ============================================================
+// CASHIER PAGE
+// ============================================================
+function renderCashier() {
+  const activeMenu = APP.menu.filter(m => m.active !== false && m.active !== 'false' && m.active !== 0);
+  const categories = [...new Set(activeMenu.map(m => m.category || 'Other'))];
+
+  const catWrap = document.getElementById('cashierCategories');
+  catWrap.innerHTML = '<div class="cat-btn active" onclick="filterCategory(this,\'\')">All</div>';
+  categories.forEach(c => {
+    catWrap.innerHTML += `<div class="cat-btn" onclick="filterCategory(this,'${c}')">${c}</div>`;
+  });
+
+  renderMenuGrid(activeMenu);
+  renderCart();
+  renderPaymentButtons();
+}
+
+function filterCategory(el, cat) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const activeMenu = APP.menu.filter(m => m.active !== false && m.active !== 'false' && m.active !== 0);
+  const filtered = cat ? activeMenu.filter(m => m.category === cat) : activeMenu;
+  renderMenuGrid(filtered);
+}
+
+function renderMenuGrid(items) {
+  const grid = document.getElementById('cashierMenuGrid');
+  grid.innerHTML = '';
+  items.forEach(m => {
+    const img = getMenuImage(m.id);
+    const price = getMenuPrice(m, APP.selectedPayment);
+    const card = document.createElement('div');
+    card.className = 'menu-card';
+    card.onclick = () => addToCart(m);
+    card.innerHTML = (img ? `<img src="${img}" alt="${m.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><div class="icon" style="display:none">${m.icon||'🍽️'}</div>` : `<div class="icon">${m.icon||'🍽️'}</div>`)
+      + `<div class="name">${m.name}</div><div class="price">${rp(price)}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+function addToCart(menuItem) {
+  const existing = APP.cart.find(c => c.menu_id === menuItem.id);
+  if (existing) { existing.qty++; }
+  else { APP.cart.push({ menu_id: menuItem.id, menu_name: menuItem.name, qty: 1, icon: menuItem.icon }); }
+  renderCart();
+}
+
+function renderCart() {
+  const wrap = document.getElementById('cartItems');
+  wrap.innerHTML = '';
+  let total = 0;
+  APP.cart.forEach((item, idx) => {
+    const m = APP.menu.find(x => x.id === item.menu_id);
+    const price = m ? getMenuPrice(m, APP.selectedPayment) : 0;
+    const subtotal = price * item.qty;
+    total += subtotal;
+    const div = document.createElement('div');
+    div.className = 'cart-item';
+    div.innerHTML = `
+      <div class="info">
+        <div class="name">${item.menu_name}</div>
+        <div class="price">${rp(price)} × ${item.qty} = ${rp(subtotal)}</div>
+      </div>
+      <div class="cart-qty">
+        <button onclick="changeQty(${idx},-1)">−</button>
+        <span>${item.qty}</span>
+        <button onclick="changeQty(${idx},1)">+</button>
+      </div>
+      <div class="remove-btn" onclick="removeCartItem(${idx})">×</div>`;
+    wrap.appendChild(div);
+  });
+  if (APP.taxRate > 0) {
+    const tax = total * APP.taxRate / 100;
+    total += tax;
+  }
+  document.getElementById('cartTotal').textContent = rp(total);
+}
+
+function changeQty(idx, delta) {
+  APP.cart[idx].qty += delta;
+  if (APP.cart[idx].qty <= 0) APP.cart.splice(idx, 1);
+  renderCart();
+}
+
+function removeCartItem(idx) {
+  APP.cart.splice(idx, 1);
+  renderCart();
+}
+
+function clearCart() { APP.cart = []; renderCart(); }
+
+function renderPaymentButtons() {
+  const wrap = document.getElementById('paymentMethods');
+  wrap.innerHTML = '';
+  PAYMENT_METHODS.forEach(pm => {
+    const btn = document.createElement('div');
+    btn.className = 'pay-btn' + (APP.selectedPayment === pm ? ' active' : '');
+    btn.textContent = pm;
+    btn.onclick = () => { APP.selectedPayment = pm; renderPaymentButtons(); renderCart(); renderMenuGrid(APP.menu.filter(m=>m.active!==false&&m.active!=='false'&&m.active!==0)); };
+    wrap.appendChild(btn);
+  });
+}
+
+async function placeOrder() {
+  if (APP._ordering) return;
+  if (APP.cart.length === 0) { toast('Cart is empty', 'error'); return; }
+
+  APP._ordering = true;
+  const btn = document.getElementById('placeOrderBtn');
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  let total = 0;
+  const items = APP.cart.map(c => {
+    const m = APP.menu.find(x => x.id === c.menu_id);
+    const price = m ? getMenuPrice(m, APP.selectedPayment) : 0;
+    total += price * c.qty;
+    return { menu_id: c.menu_id, menu_name: c.menu_name, qty: c.qty, price: price };
+  });
+  if (APP.taxRate > 0) total += total * APP.taxRate / 100;
+  total = Math.round(total);
+
+  const orderId = generateId('ORD');
+  const date = todayStr();
+  const time = nowTime();
+  const note = document.getElementById('cartNote').value.trim();
+
+  const order = { id: orderId, date, time, payment: APP.selectedPayment, total, branch: APP.branch, status: 'Completed', note, cancel_reason: '', cancelled_at: '' };
+  APP.orders.push(order);
+  items.forEach(it => APP.orderItems.push({ order_id: orderId, ...it, payment_type: APP.selectedPayment }));
+
+  const ledgerId = generateId('LED');
+  APP.ledger.push({ id: ledgerId, date, time, type: 'Income', category: 'Sales', description: 'Order ' + orderId, amount: total, payment: APP.selectedPayment, order_id: orderId });
+
+  deductLocalStock(items, orderId, date);
+
+  saveLocal('orders', APP.orders);
+  saveLocal('orderItems', APP.orderItems);
+  saveLocal('ledger', APP.ledger);
+  saveLocal('ingredients', APP.ingredients);
+  saveLocal('stockLog', APP.stockLog);
+
+  APP.cart = [];
+  document.getElementById('cartNote').value = '';
+  renderCart();
+  toast('Order placed! ' + rp(total), 'success');
+
+  apiSync('placeOrder', { orderId, date, time, payment: APP.selectedPayment, total, items, note });
+
+  btn.disabled = false;
+  btn.textContent = 'Place Order';
+  APP._ordering = false;
+}
+
+function deductLocalStock(items, orderId, date) {
+  items.forEach(item => {
+    const menuRecipes = APP.recipes.filter(r => String(r.menu_id) === String(item.menu_id));
+    menuRecipes.forEach(rec => {
+      const ing = APP.ingredients.find(i => String(i.id) === String(rec.ingredient_id));
+      if (!ing) return;
+      const totalDeduct = Number(rec.amount) * Number(item.qty);
+      ing.current_stock = Number(ing.current_stock) - totalDeduct;
+      APP.stockLog.push({ id: generateId('STK'), date, ingredient_id: rec.ingredient_id, ingredient_name: rec.ingredient_name, change: -totalDeduct, reason: 'Order ' + orderId, order_id: orderId });
+    });
+  });
+}
+
+// ============================================================
+// STOCK PAGE
+// ============================================================
+function renderStock() {
+  const tbody = document.getElementById('stockTableBody');
+  tbody.innerHTML = '';
+  APP.ingredients.forEach(ing => {
+    const isLow = Number(ing.current_stock) <= Number(ing.min_stock);
+    const costPerUnit = Number(ing.cost_per_unit) || (Number(ing.pack_price) / Number(ing.pack_size) || 0);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${ing.name}</td>
+      <td class="${isLow?'low-stock':''}">${Number(ing.current_stock).toFixed(1)}</td>
+      <td>${ing.min_stock}</td>
+      <td>${ing.unit}</td>
+      <td>${ing.pack_size} @ ${rp(ing.pack_price)}</td>
+      <td class="mono">${rp(costPerUnit.toFixed(0))}</td>
+      <td>
+        <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="showRestockModal('${ing.id}')">Restock</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="showIngredientModal('${ing.id}')">Edit</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px;color:var(--red)" onclick="deleteIngredient('${ing.id}')">Del</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function showIngredientModal(id) {
+  const ing = id ? APP.ingredients.find(i => i.id === id) : null;
+  showModal('Ingredient', `
+    <input type="hidden" id="ingId" value="${ing?.id||''}">
+    <div class="form-group"><label>Name</label><input id="ingName" value="${ing?.name||''}"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Unit</label><input id="ingUnit" value="${ing?.unit||''}" placeholder="g, ml, pcs"></div>
+      <div class="form-group"><label>Min Stock</label><input type="number" id="ingMinStock" value="${ing?.min_stock||0}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Current Stock</label><input type="number" id="ingCurrentStock" value="${ing?.current_stock||0}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Pack Size</label><input type="number" id="ingPackSize" value="${ing?.pack_size||0}"></div>
+      <div class="form-group"><label>Pack Price</label><input type="number" id="ingPackPrice" value="${ing?.pack_price||0}"></div>
+    </div>
+  `, saveIngredient);
+}
+
+async function saveIngredient() {
+  const item = {
+    id: document.getElementById('ingId').value || generateId('ING'),
+    name: document.getElementById('ingName').value,
+    unit: document.getElementById('ingUnit').value,
+    current_stock: Number(document.getElementById('ingCurrentStock').value),
+    min_stock: Number(document.getElementById('ingMinStock').value),
+    pack_size: Number(document.getElementById('ingPackSize').value),
+    pack_price: Number(document.getElementById('ingPackPrice').value),
+    cost_per_unit: 0,
+  };
+  if (item.pack_size > 0) item.cost_per_unit = item.pack_price / item.pack_size;
+
+  const idx = APP.ingredients.findIndex(i => i.id === item.id);
+  if (idx >= 0) APP.ingredients[idx] = item; else APP.ingredients.push(item);
+  saveLocal('ingredients', APP.ingredients);
+  closeModal();
+  renderStock();
+  toast('Ingredient saved', 'success');
+  apiSync('saveIngredient', { item });
+}
+
+async function deleteIngredient(id) {
+  if (!confirm('Delete this ingredient?')) return;
+  APP.ingredients = APP.ingredients.filter(i => i.id !== id);
+  saveLocal('ingredients', APP.ingredients);
+  renderStock();
+  apiSync('deleteIngredient', { ingredientId: id });
+}
+
+function showRestockModal(id) {
+  const ing = APP.ingredients.find(i => i.id === id);
+  if (!ing) return;
+  showModal('Restock ' + ing.name, `
+    <div class="form-group"><label>Amount to add (${ing.unit})</label><input type="number" id="restockAmt" value="${ing.pack_size||0}"></div>
+    <div class="form-group"><label>Cost (optional)</label><input type="number" id="restockCost" value="${ing.pack_price||0}"></div>
+    <div class="form-group"><label>Payment</label><select id="restockPayment"><option>Cash</option><option>QRIS</option></select></div>
+    <input type="hidden" id="restockId" value="${id}">
+  `, doRestock);
+}
+
+async function doRestock() {
+  const id = document.getElementById('restockId').value;
+  const amount = Number(document.getElementById('restockAmt').value);
+  const cost = Number(document.getElementById('restockCost').value);
+  const payment = document.getElementById('restockPayment').value;
+  const ing = APP.ingredients.find(i => i.id === id);
+  if (!ing) return;
+
+  ing.current_stock = Number(ing.current_stock) + amount;
+  APP.stockLog.push({ id: generateId('STK'), date: todayStr(), ingredient_id: id, ingredient_name: ing.name, change: amount, reason: 'Restock', order_id: '' });
+
+  if (cost > 0) {
+    APP.ledger.push({ id: generateId('LED'), date: todayStr(), time: nowTime(), type: 'Expense', category: 'Restock', description: 'Restock ' + ing.name, amount: -Math.abs(cost), payment, order_id: '' });
+    saveLocal('ledger', APP.ledger);
+  }
+
+  saveLocal('ingredients', APP.ingredients);
+  saveLocal('stockLog', APP.stockLog);
+  closeModal();
+  renderStock();
+  toast('Restocked!', 'success');
+  apiSync('restockIngredient', { ingredientId: id, ingredientName: ing.name, amount, cost, payment });
+}
+
+// ============================================================
+// MENU MANAGEMENT PAGE
+// ============================================================
+function renderMenuMgmt() {
+  const grid = document.getElementById('menuMgmtGrid');
+  grid.innerHTML = '';
+  APP.menu.forEach(m => {
+    const img = getMenuImage(m.id);
+    const card = document.createElement('div');
+    card.className = 'menu-mgmt-card';
+    card.innerHTML = `
+      <div class="img-area" onclick="pickMenuImage('${m.id}',this)">
+        ${img ? `<img src="${img}" onerror="this.style.display='none'">` : `<span style="font-size:48px">${m.icon||'🍽️'}</span>`}
+        <div class="overlay">Change Image</div>
+        <input type="file" accept="image/*" style="display:none" onclick="event.stopPropagation()" onchange="handleMenuImage(event,'${m.id}')">
+      </div>
+      <div class="body">
+        <h3>${m.name} ${m.active===false||m.active==='false'?'<span class="badge badge-red">Inactive</span>':''}</h3>
+        <div class="cat">${m.category||'Uncategorized'} ${m.icon||''}</div>
+        <div class="prices">
+          <span>Cash: ${rp(m.price_cash)}</span>
+          <span>DANA: ${rp(m.price_dana||m.price_cash)}</span>
+          <span>GoFood: ${rp(m.price_gofood||m.price_cash)}</span>
+          <span>Shopee: ${rp(m.price_shopee||m.price_cash)}</span>
+          <span>Grab: ${rp(m.price_grab||m.price_cash)}</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" style="font-size:12px" onclick="showMenuModal('${m.id}')">Edit</button>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="showRecipeModal('${m.id}')">Recipe</button>
+        <button class="btn btn-ghost" style="font-size:12px;color:var(--red)" onclick="deleteMenu('${m.id}')">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function pickMenuImage(menuId, area) {
+  area.querySelector('input[type=file]').click();
+}
+
+function handleMenuImage(event, menuId) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result;
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    img.onload = async () => {
+      const maxW = 400;
+      const scale = Math.min(1, maxW / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const thumb = canvas.toDataURL('image/jpeg', 0.7);
+
+      const imgs = getLocalImages();
+      imgs[menuId] = thumb;
+      saveLocalImages(imgs);
+
+      if (APP.ghRepo && APP.ghToken) {
+        const uploaded = await uploadImageToGitHub(menuId, base64);
+        if (uploaded) {
+          const m = APP.menu.find(x => x.id === menuId);
+          if (m) { m.image = uploaded; saveLocal('menu', APP.menu); apiSync('saveMenu', { item: m }); }
+        }
+      }
+      renderMenuMgmt();
+      toast('Image updated', 'success');
+    };
+    img.src = base64;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadImageToGitHub(menuId, base64Data) {
+  if (!APP.ghRepo || !APP.ghToken) return null;
+  const path = `images/${menuId}.jpg`;
+  const url = `https://api.github.com/repos/${APP.ghRepo}/contents/${path}`;
+  const content = base64Data.split(',')[1];
+
+  try {
+    let sha = null;
+    const existing = await fetch(url, { headers: { Authorization: 'token ' + APP.ghToken } });
+    if (existing.ok) { sha = (await existing.json()).sha; }
+
+    const body = { message: 'Upload ' + menuId, content };
+    if (sha) body.sha = sha;
+
+    const resp = await fetch(url, {
+      method: 'PUT',
+      headers: { Authorization: 'token ' + APP.ghToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (resp.ok) {
+      return `https://raw.githubusercontent.com/${APP.ghRepo}/main/${path}`;
+    }
+  } catch(e) { console.error('GitHub upload error:', e); }
+  return null;
+}
+
+async function deleteImageFromGitHub(menuId) {
+  if (!APP.ghRepo || !APP.ghToken) return;
+  const path = `images/${menuId}.jpg`;
+  const url = `https://api.github.com/repos/${APP.ghRepo}/contents/${path}`;
+  try {
+    const existing = await fetch(url, { headers: { Authorization: 'token ' + APP.ghToken } });
+    if (existing.ok) {
+      const { sha } = await existing.json();
+      await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: 'token ' + APP.ghToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Delete ' + menuId, sha })
+      });
+    }
+  } catch(e) {}
+}
+
+function showMenuModal(id) {
+  const m = id ? APP.menu.find(x => x.id === id) : null;
+  showModal('Menu Item', `
+    <input type="hidden" id="menuId" value="${m?.id||''}">
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="menuName" value="${m?.name||''}"></div>
+      <div class="form-group"><label>Icon</label><input id="menuIcon" value="${m?.icon||'🍽️'}" style="width:60px"></div>
+    </div>
+    <div class="form-group"><label>Category</label><input id="menuCategory" value="${m?.category||''}" placeholder="Food, Drink, etc"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Price (Cash)</label><input type="number" id="menuPriceCash" value="${m?.price_cash||0}"></div>
+      <div class="form-group"><label>DANA</label><input type="number" id="menuPriceDana" value="${m?.price_dana||0}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>GoFood</label><input type="number" id="menuPriceGofood" value="${m?.price_gofood||0}"></div>
+      <div class="form-group"><label>ShopeeFood</label><input type="number" id="menuPriceShopee" value="${m?.price_shopee||0}"></div>
+    </div>
+    <div class="form-group"><label>Grab</label><input type="number" id="menuPriceGrab" value="${m?.price_grab||0}"></div>
+    <div class="form-group"><label>Active</label><select id="menuActive"><option value="true" ${m?.active!==false&&m?.active!=='false'?'selected':''}>Yes</option><option value="false" ${m?.active===false||m?.active==='false'?'selected':''}>No</option></select></div>
+  `, saveMenuItem);
+}
+
+async function saveMenuItem() {
+  const item = {
+    id: document.getElementById('menuId').value || generateId('MNU'),
+    name: document.getElementById('menuName').value,
+    category: document.getElementById('menuCategory').value,
+    icon: document.getElementById('menuIcon').value,
+    image: '',
+    price_cash: Number(document.getElementById('menuPriceCash').value),
+    price_dana: Number(document.getElementById('menuPriceDana').value),
+    price_gofood: Number(document.getElementById('menuPriceGofood').value),
+    price_shopee: Number(document.getElementById('menuPriceShopee').value),
+    price_grab: Number(document.getElementById('menuPriceGrab').value),
+    active: document.getElementById('menuActive').value === 'true',
+  };
+  const existing = APP.menu.find(m => m.id === item.id);
+  if (existing) item.image = existing.image || '';
+
+  const idx = APP.menu.findIndex(m => m.id === item.id);
+  if (idx >= 0) APP.menu[idx] = item; else APP.menu.push(item);
+  saveLocal('menu', APP.menu);
+  closeModal();
+  renderMenuMgmt();
+  toast('Menu item saved', 'success');
+  apiSync('saveMenu', { item });
+}
+
+async function deleteMenu(id) {
+  if (!confirm('Delete this menu item?')) return;
+  APP.menu = APP.menu.filter(m => m.id !== id);
+  APP.recipes = APP.recipes.filter(r => String(r.menu_id) !== String(id));
+  saveLocal('menu', APP.menu);
+  saveLocal('recipes', APP.recipes);
+  const imgs = getLocalImages();
+  delete imgs[id];
+  saveLocalImages(imgs);
+  deleteImageFromGitHub(id);
+  renderMenuMgmt();
+  apiSync('deleteMenu', { menuId: id });
+}
+
+function showRecipeModal(menuId) {
+  const m = APP.menu.find(x => x.id === menuId);
+  const existing = APP.recipes.filter(r => String(r.menu_id) === String(menuId));
+  let rows = existing.map(r => `
+    <div class="form-row recipe-row" style="align-items:end">
+      <div class="form-group"><label>Ingredient</label><select class="recIng" style="width:100%">${APP.ingredients.map(i=>`<option value="${i.id}" ${i.id===r.ingredient_id?'selected':''}>${i.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Amount</label><input type="number" class="recAmt" value="${r.amount}" style="width:80px"></div>
+      <button class="btn btn-ghost" onclick="this.closest('.recipe-row').remove()" style="color:var(--red);margin-bottom:12px">×</button>
+    </div>`).join('');
+
+  showModal('Recipe: ' + (m?.name||''), `
+    <div id="recipeRows">${rows}</div>
+    <button class="btn btn-ghost" onclick="addRecipeRow()" style="margin-bottom:12px">+ Add Ingredient</button>
+    <input type="hidden" id="recipeMenuId" value="${menuId}">
+  `, saveRecipe);
+}
+
+function addRecipeRow() {
+  const wrap = document.getElementById('recipeRows');
+  const html = `
+    <div class="form-row recipe-row" style="align-items:end">
+      <div class="form-group"><label>Ingredient</label><select class="recIng" style="width:100%">${APP.ingredients.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Amount</label><input type="number" class="recAmt" value="0" style="width:80px"></div>
+      <button class="btn btn-ghost" onclick="this.closest('.recipe-row').remove()" style="color:var(--red);margin-bottom:12px">×</button>
+    </div>`;
+  wrap.insertAdjacentHTML('beforeend', html);
+}
+
+async function saveRecipe() {
+  const menuId = document.getElementById('recipeMenuId').value;
+  const rows = document.querySelectorAll('.recipe-row');
+  const recipes = [];
+  rows.forEach(row => {
+    const ingId = row.querySelector('.recIng').value;
+    const amt = Number(row.querySelector('.recAmt').value);
+    const ing = APP.ingredients.find(i => i.id === ingId);
+    recipes.push({ ingredient_id: ingId, ingredient_name: ing?.name||'', amount: amt, unit: ing?.unit||'' });
+  });
+  APP.recipes = APP.recipes.filter(r => String(r.menu_id) !== String(menuId));
+  recipes.forEach(r => APP.recipes.push({ menu_id: menuId, ...r }));
+  saveLocal('recipes', APP.recipes);
+  closeModal();
+  renderMenuMgmt();
+  toast('Recipe saved', 'success');
+  apiSync('saveRecipe', { menuId, recipes });
+}
+
+// ============================================================
+// COGS PAGE
+// ============================================================
+function renderCOGS() {
+  const grid = document.getElementById('cogsGrid');
+  grid.innerHTML = '';
+  APP.menu.forEach(m => {
+    const menuRecipes = APP.recipes.filter(r => String(r.menu_id) === String(m.id));
+    let totalCost = 0;
+    let rows = '';
+    menuRecipes.forEach(r => {
+      const ing = APP.ingredients.find(i => String(i.id) === String(r.ingredient_id));
+      const cpu = ing ? (Number(ing.cost_per_unit) || (Number(ing.pack_price)/Number(ing.pack_size)||0)) : 0;
+      const cost = cpu * Number(r.amount);
+      totalCost += cost;
+      rows += `<tr><td>${r.ingredient_name}</td><td class="mono">${r.amount} ${r.unit}</td><td class="mono">${rp(cost.toFixed(0))}</td></tr>`;
+    });
+    const card = document.createElement('div');
+    card.className = 'cogs-card';
+    card.innerHTML = `
+      <h3><span>${m.icon||''} ${m.name}</span><span class="total">${rp(totalCost.toFixed(0))}</span></h3>
+      ${menuRecipes.length ? `<table><thead><tr><th>Ingredient</th><th>Amount</th><th>Cost</th></tr></thead><tbody>${rows}</tbody></table>` : '<p style="color:var(--text3);font-size:13px">No recipe set</p>'}
+      <div style="margin-top:8px;font-size:12px;color:var(--text3)">Margin (Cash): ${rp(Number(m.price_cash)-totalCost)} (${m.price_cash>0?Math.round((Number(m.price_cash)-totalCost)/Number(m.price_cash)*100):0}%)</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ============================================================
+// LEDGER / CASH FLOW PAGE
+// ============================================================
+function renderLedger() {
+  const dateFilter = document.getElementById('ledgerDateFilter').value || todayStr();
+  const dayEntries = APP.ledger.filter(l => normalizeDate(l.date) === dateFilter);
+
+  const tbody = document.getElementById('ledgerTableBody');
+  tbody.innerHTML = '';
+  dayEntries.sort((a,b) => (a.time||'').localeCompare(b.time||'')).forEach(l => {
+    const isIncome = Number(l.amount) >= 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${l.time||''}</td>
+      <td><span class="badge ${isIncome?'badge-green':'badge-red'}">${l.type}</span></td>
+      <td>${l.category}</td>
+      <td>${l.description}</td>
+      <td class="mono" style="color:${isIncome?'var(--green)':'var(--red)'}">${rp(l.amount)}</td>
+      <td>${l.payment||''}</td>
+      <td>${l.order_id?'':'<button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--red)" onclick="deleteLedgerEntry(\''+l.id+'\')">×</button>'}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  renderLedgerSidebar(dayEntries);
+}
+
+function renderLedgerSidebar(entries) {
+  const sb = document.getElementById('ledgerSidebar');
+  let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
+  entries.forEach(l => {
+    const amt = Number(l.amount);
+    const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
+    if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
+    else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
+  });
+  sb.innerHTML = `
+    <div class="money-box"><h4>Cash</h4><div class="amount" style="color:var(--green)">${rp(cashIn - cashOut)}</div><div class="detail">In: <span>${rp(cashIn)}</span> | Out: <span>${rp(cashOut)}</span></div></div>
+    <div class="money-box"><h4>QRIS / Online</h4><div class="amount" style="color:var(--blue)">${rp(qrisIn - qrisOut)}</div><div class="detail">In: <span>${rp(qrisIn)}</span> | Out: <span>${rp(qrisOut)}</span></div></div>
+    <div class="money-box"><h4>Total</h4><div class="amount" style="color:var(--amber)">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div><div class="detail">In: <span>${rp(cashIn+qrisIn)}</span> | Out: <span>${rp(cashOut+qrisOut)}</span></div></div>`;
+}
+
+function showLedgerModal(type) {
+  showModal('Add ' + type, `
+    <div class="form-group"><label>Category</label><input id="ledCat" placeholder="e.g. Supplies, Utilities"></div>
+    <div class="form-group"><label>Description</label><input id="ledDesc"></div>
+    <div class="form-group"><label>Amount</label><input type="number" id="ledAmt" min="0"></div>
+    <div class="form-group"><label>Payment</label><select id="ledPayment"><option>Cash</option><option>QRIS</option></select></div>
+    <input type="hidden" id="ledType" value="${type}">
+  `, saveLedgerEntry);
+}
+
+async function saveLedgerEntry() {
+  const type = document.getElementById('ledType').value;
+  const entry = {
+    id: generateId('LED'),
+    date: todayStr(),
+    time: nowTime(),
+    type,
+    category: document.getElementById('ledCat').value,
+    description: document.getElementById('ledDesc').value,
+    amount: type === 'Expense' ? -Math.abs(Number(document.getElementById('ledAmt').value)) : Math.abs(Number(document.getElementById('ledAmt').value)),
+    payment: document.getElementById('ledPayment').value,
+    order_id: '',
+  };
+  APP.ledger.push(entry);
+  saveLocal('ledger', APP.ledger);
+  closeModal();
+  renderLedger();
+  toast(type + ' added', 'success');
+  apiSync('addLedgerEntry', { entry });
+}
+
+async function deleteLedgerEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  APP.ledger = APP.ledger.filter(l => l.id !== id);
+  saveLocal('ledger', APP.ledger);
+  renderLedger();
+  apiSync('deleteLedgerEntry', { ledgerId: id });
+}
+
+// ============================================================
+// ORDERS PAGE
+// ============================================================
+function renderOrders() {
+  const from = document.getElementById('ordersDateFrom').value;
+  const to = document.getElementById('ordersDateTo').value;
+  const status = document.getElementById('ordersStatusFilter').value;
+
+  let filtered = [...APP.orders];
+  if (from) filtered = filtered.filter(o => normalizeDate(o.date) >= from);
+  if (to) filtered = filtered.filter(o => normalizeDate(o.date) <= to);
+  if (status) filtered = filtered.filter(o => o.status === status);
+  filtered.sort((a,b) => (normalizeDate(b.date)+b.time).localeCompare(normalizeDate(a.date)+a.time));
+
+  const tbody = document.getElementById('ordersTableBody');
+  tbody.innerHTML = '';
+  filtered.forEach(o => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono" style="font-size:12px">${o.id}</td>
+      <td>${normalizeDate(o.date)}</td>
+      <td class="mono">${o.time||''}</td>
+      <td>${o.payment}</td>
+      <td class="mono">${rp(o.total)}</td>
+      <td><span class="badge ${o.status==='Completed'?'badge-green':'badge-red'}">${o.status}</span></td>
+      <td style="font-size:12px">${o.note||''} ${o.cancel_reason?'('+o.cancel_reason+')':''}</td>
+      <td>${o.status==='Completed'?`<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--red)" onclick="cancelOrder('${o.id}')">Cancel</button>`:''}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function cancelOrder(orderId) {
+  const reason = prompt('Reason for cancellation?');
+  if (reason === null) return;
+
+  const order = APP.orders.find(o => o.id === orderId);
+  if (!order || order.status === 'Cancelled') return;
+
+  order.status = 'Cancelled';
+  order.cancel_reason = reason;
+  order.cancelled_at = new Date().toISOString();
+
+  APP.ledger.push({
+    id: generateId('LED'), date: order.date, time: order.time,
+    type: 'Income', category: 'Sales Reversal',
+    description: 'Cancel ' + orderId,
+    amount: -Number(order.total), payment: order.payment, order_id: orderId
+  });
+
+  const orderItems = APP.orderItems.filter(i => String(i.order_id) === String(orderId));
+  orderItems.forEach(item => {
+    const menuRecipes = APP.recipes.filter(r => String(r.menu_id) === String(item.menu_id));
+    menuRecipes.forEach(rec => {
+      const ing = APP.ingredients.find(i => String(i.id) === String(rec.ingredient_id));
+      if (ing) {
+        const restore = Number(rec.amount) * Number(item.qty);
+        ing.current_stock = Number(ing.current_stock) + restore;
+        APP.stockLog.push({ id: generateId('STK'), date: order.date, ingredient_id: rec.ingredient_id, ingredient_name: rec.ingredient_name, change: restore, reason: 'Cancel ' + orderId, order_id: orderId });
+      }
+    });
+  });
+
+  saveLocal('orders', APP.orders);
+  saveLocal('ledger', APP.ledger);
+  saveLocal('ingredients', APP.ingredients);
+  saveLocal('stockLog', APP.stockLog);
+  renderOrders();
+  toast('Order cancelled', 'success');
+  apiSync('cancelOrder', { orderId, reason });
+}
+
+// ============================================================
+// REPORTS PAGE
+// ============================================================
+function switchReportTab(tab) {
+  APP.reportTab = tab;
+  document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.report-tab:${tab==='daily'?'first':'last'}-child`).classList.add('active');
+  document.getElementById('reportDate').style.display = tab==='daily'?'':'none';
+  document.getElementById('reportMonth').style.display = tab==='monthly'?'':'none';
+  renderReport();
+}
+
+function renderReport() {
+  const content = document.getElementById('reportContent');
+  if (APP.reportTab === 'daily') renderDailyReport(content);
+  else renderMonthlyReport(content);
+}
+
+function renderDailyReport(container) {
+  const date = document.getElementById('reportDate').value || todayStr();
+  const dayOrders = APP.orders.filter(o => normalizeDate(o.date) === date && o.status === 'Completed');
+  const dayItems = APP.orderItems.filter(oi => dayOrders.some(o => o.id === oi.order_id));
+  const dayLedger = APP.ledger.filter(l => normalizeDate(l.date) === date);
+
+  const totalSales = dayOrders.reduce((s,o) => s + Number(o.total), 0);
+  const totalCOGS = calcCOGS(dayItems);
+  const expenses = dayLedger.filter(l => Number(l.amount) < 0 && l.category !== 'Sales Reversal').reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
+  const netProfit = totalSales - totalCOGS - expenses;
+
+  const payBreakdown = {};
+  PAYMENT_METHODS.forEach(pm => { payBreakdown[pm] = dayOrders.filter(o => o.payment === pm).reduce((s,o) => s + Number(o.total), 0); });
+
+  let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
+  dayLedger.forEach(l => {
+    const amt = Number(l.amount);
+    const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
+    if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
+    else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
+  });
+
+  const topItems = {};
+  dayItems.forEach(i => {
+    topItems[i.menu_name] = (topItems[i.menu_name]||0) + Number(i.qty);
+  });
+  const sorted = Object.entries(topItems).sort((a,b) => b[1]-a[1]);
+
+  container.innerHTML = `
+    <div class="report-grid">
+      <div class="stat-card"><div class="label">Orders</div><div class="value">${dayOrders.length}</div></div>
+      <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(totalSales)}</div></div>
+      <div class="stat-card red"><div class="label">COGS</div><div class="value">${rp(totalCOGS)}</div></div>
+      <div class="stat-card red"><div class="label">Expenses</div><div class="value">${rp(expenses)}</div></div>
+      <div class="stat-card ${netProfit>=0?'green':'red'}"><div class="label">Net Profit</div><div class="value">${rp(netProfit)}</div></div>
+    </div>
+    <div class="report-grid">
+      ${PAYMENT_METHODS.map(pm => `<div class="stat-card"><div class="label">${pm}</div><div class="value mono" style="font-size:16px">${rp(payBreakdown[pm])}</div></div>`).join('')}
+    </div>
+    <div class="report-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="label">Cash</div><div class="value" style="color:var(--green);font-size:18px">${rp(cashIn-cashOut)}</div><div class="sub">In: ${rp(cashIn)} | Out: ${rp(cashOut)}</div></div>
+      <div class="stat-card"><div class="label">QRIS</div><div class="value" style="color:var(--blue);font-size:18px">${rp(qrisIn-qrisOut)}</div><div class="sub">In: ${rp(qrisIn)} | Out: ${rp(qrisOut)}</div></div>
+      <div class="stat-card"><div class="label">Total</div><div class="value" style="color:var(--amber);font-size:18px">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Top Items</div>
+      <table><thead><tr><th>Item</th><th>Qty</th></tr></thead>
+      <tbody>${sorted.map(([name,qty]) => `<tr><td>${name}</td><td class="mono">${qty}</td></tr>`).join('')}</tbody></table>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Finance Log</div>
+      <table><thead><tr><th>Time</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Payment</th></tr></thead>
+      <tbody>${dayLedger.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(l => `<tr><td class="mono">${l.time||''}</td><td><span class="badge ${Number(l.amount)>=0?'badge-green':'badge-red'}">${l.type}</span></td><td>${l.category}</td><td>${l.description}</td><td class="mono" style="color:${Number(l.amount)>=0?'var(--green)':'var(--red)'}">${rp(l.amount)}</td><td>${l.payment||''}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+}
+
+function renderMonthlyReport(container) {
+  const month = document.getElementById('reportMonth').value || todayStr().substring(0,7);
+  const monthOrders = APP.orders.filter(o => normalizeDate(o.date).startsWith(month) && o.status === 'Completed');
+  const monthItems = APP.orderItems.filter(oi => monthOrders.some(o => o.id === oi.order_id));
+  const monthLedger = APP.ledger.filter(l => normalizeDate(l.date).startsWith(month));
+
+  const totalSales = monthOrders.reduce((s,o) => s + Number(o.total), 0);
+  const totalCOGS = calcCOGS(monthItems);
+  const expenses = monthLedger.filter(l => Number(l.amount) < 0 && l.category !== 'Sales Reversal').reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
+  const netProfit = totalSales - totalCOGS - expenses;
+
+  const payBreakdown = {};
+  PAYMENT_METHODS.forEach(pm => { payBreakdown[pm] = monthOrders.filter(o => o.payment === pm).reduce((s,o) => s + Number(o.total), 0); });
+
+  let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
+  monthLedger.forEach(l => {
+    const amt = Number(l.amount);
+    const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
+    if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
+    else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
+  });
+
+  const allItems = {};
+  monthItems.forEach(i => { allItems[i.menu_name] = (allItems[i.menu_name]||0) + Number(i.qty); });
+  const sortedItems = Object.entries(allItems).sort((a,b) => b[1]-a[1]);
+
+  const lowStock = APP.ingredients.filter(i => Number(i.current_stock) <= Number(i.min_stock));
+
+  container.innerHTML = `
+    <div class="report-grid">
+      <div class="stat-card"><div class="label">Orders</div><div class="value">${monthOrders.length}</div></div>
+      <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(totalSales)}</div></div>
+      <div class="stat-card red"><div class="label">COGS</div><div class="value">${rp(totalCOGS)}</div></div>
+      <div class="stat-card red"><div class="label">Expenses</div><div class="value">${rp(expenses)}</div></div>
+      <div class="stat-card ${netProfit>=0?'green':'red'}"><div class="label">Net Profit</div><div class="value">${rp(netProfit)}</div></div>
+    </div>
+    <div class="report-grid">
+      ${PAYMENT_METHODS.map(pm => `<div class="stat-card"><div class="label">${pm}</div><div class="value mono" style="font-size:16px">${rp(payBreakdown[pm])}</div></div>`).join('')}
+    </div>
+    <div class="report-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="label">Cash</div><div class="value" style="color:var(--green);font-size:18px">${rp(cashIn-cashOut)}</div><div class="sub">In: ${rp(cashIn)} | Out: ${rp(cashOut)}</div></div>
+      <div class="stat-card"><div class="label">QRIS</div><div class="value" style="color:var(--blue);font-size:18px">${rp(qrisIn-qrisOut)}</div><div class="sub">In: ${rp(qrisIn)} | Out: ${rp(qrisOut)}</div></div>
+      <div class="stat-card"><div class="label">Total</div><div class="value" style="color:var(--amber);font-size:18px">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Menu Sales</div>
+      <table><thead><tr><th>Item</th><th>Qty Sold</th></tr></thead>
+      <tbody>${sortedItems.map(([name,qty]) => `<tr><td>${name}</td><td class="mono">${qty}</td></tr>`).join('')}</tbody></table>
+    </div>
+    ${lowStock.length ? `<div class="card" style="margin-top:16px;border-color:var(--red)">
+      <div class="card-title" style="color:var(--red)">⚠ Restock Needed</div>
+      <table><thead><tr><th>Ingredient</th><th>Current</th><th>Min</th><th>Unit</th></tr></thead>
+      <tbody>${lowStock.map(i => `<tr><td>${i.name}</td><td class="low-stock">${Number(i.current_stock).toFixed(1)}</td><td>${i.min_stock}</td><td>${i.unit}</td></tr>`).join('')}</tbody></table>
+    </div>` : ''}`;
+}
+
+function calcCOGS(orderItems) {
+  let total = 0;
+  orderItems.forEach(item => {
+    const menuRecipes = APP.recipes.filter(r => String(r.menu_id) === String(item.menu_id));
+    menuRecipes.forEach(rec => {
+      const ing = APP.ingredients.find(i => String(i.id) === String(rec.ingredient_id));
+      const cpu = ing ? (Number(ing.cost_per_unit) || (Number(ing.pack_price)/Number(ing.pack_size)||0)) : 0;
+      total += cpu * Number(rec.amount) * Number(item.qty);
+    });
+  });
+  return total;
+}
+
+// ============================================================
+// SETTINGS PAGE
+// ============================================================
+function loadSettingsUI() {
+  document.getElementById('settingScriptUrl').value = APP.scriptUrl || '';
+  document.getElementById('settingGhRepo').value = APP.ghRepo || '';
+  document.getElementById('settingGhToken').value = APP.ghToken || '';
+  document.getElementById('settingTaxRate').value = APP.taxRate || 0;
+  document.getElementById('versionLabel').textContent = 'v' + APP_VERSION;
+  const cl = document.getElementById('changelogList');
+  cl.innerHTML = CHANGELOG.map(c => `<div class="changelog-item"><span class="ver">${c.ver}</span> <span style="color:var(--text3)">${c.date}</span><br>${c.msg}</div>`).join('');
+}
+
+function saveScriptUrl() {
+  APP.scriptUrl = document.getElementById('settingScriptUrl').value.trim();
+  localStorage.setItem('lpos_scriptUrl', APP.scriptUrl);
+  toast('Script URL saved', 'success');
+  if (APP.scriptUrl) apiSync('saveSettings', { settings: { scriptUrl: APP.scriptUrl } });
+}
+
+function saveGitHubSettings() {
+  APP.ghRepo = document.getElementById('settingGhRepo').value.trim();
+  APP.ghToken = document.getElementById('settingGhToken').value.trim();
+  localStorage.setItem('lpos_ghRepo', APP.ghRepo);
+  localStorage.setItem('lpos_ghToken', APP.ghToken);
+  toast('GitHub settings saved', 'success');
+  if (APP.scriptUrl && APP.ghRepo) apiSync('saveSettings', { settings: { ghRepo: APP.ghRepo } });
+}
+
+function saveTaxRate() {
+  APP.taxRate = Number(document.getElementById('settingTaxRate').value) || 0;
+  localStorage.setItem('lpos_taxRate', APP.taxRate);
+  toast('Tax rate saved', 'success');
+  if (APP.scriptUrl) apiSync('saveSettings', { settings: { taxRate: String(APP.taxRate) } });
+}
+
+function exportCSV(type) {
+  let headers, rows;
+  if (type === 'orders') {
+    headers = ['ID','Date','Time','Payment','Total','Status','Note'];
+    rows = APP.orders.map(o => [o.id, normalizeDate(o.date), o.time, o.payment, o.total, o.status, o.note]);
+  } else if (type === 'stock') {
+    headers = ['ID','Name','Unit','Stock','Min','Pack Size','Pack Price','Cost/Unit'];
+    rows = APP.ingredients.map(i => [i.id, i.name, i.unit, i.current_stock, i.min_stock, i.pack_size, i.pack_price, i.cost_per_unit]);
+  } else {
+    headers = ['ID','Date','Time','Type','Category','Description','Amount','Payment'];
+    rows = APP.ledger.map(l => [l.id, normalizeDate(l.date), l.time, l.type, l.category, l.description, l.amount, l.payment]);
+  }
+  const csv = [headers.join(','), ...rows.map(r => r.map(v => '"'+String(v||'').replace(/"/g,'""')+'"').join(','))].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = type + '_' + todayStr() + '.csv';
+  a.click();
+  toast('CSV exported', 'success');
+}
+
+async function pushLocalToCloud() {
+  if (!APP.scriptUrl) { toast('Set Script URL first', 'error'); return; }
+  const btn = document.getElementById('pushBtn');
+  btn.disabled = true;
+  btn.textContent = 'Pushing...';
+
+  const resp = await apiSync('pushData', {
+    ingredients: APP.ingredients,
+    menu: APP.menu.map(m => ({...m, image: m.image || ''})),
+    recipes: APP.recipes,
+    orders: APP.orders,
+    orderItems: APP.orderItems,
+    ledger: APP.ledger,
+  });
+
+  if (resp) {
+    toast('Push complete! ' + JSON.stringify(resp.counts || {}), 'success');
+    if (APP.ghRepo && APP.ghToken) {
+      const imgs = getLocalImages();
+      for (const [menuId, base64] of Object.entries(imgs)) {
+        if (base64.startsWith('data:')) {
+          const url = await uploadImageToGitHub(menuId, base64);
+          if (url) {
+            const m = APP.menu.find(x => x.id === menuId);
+            if (m) { m.image = url; }
+          }
+        }
+      }
+      saveLocal('menu', APP.menu);
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Push to Cloud';
+}
+
+function clearLocalCache() {
+  if (!confirm('Clear ALL local data for ' + APP.branch + '? This cannot be undone.')) return;
+  const keys = Object.keys(localStorage).filter(k => k.startsWith('lpos_' + APP.branch));
+  keys.forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem(imageStorageKey());
+  APP.menu=[]; APP.ingredients=[]; APP.recipes=[]; APP.orders=[]; APP.orderItems=[]; APP.ledger=[]; APP.stockLog=[]; APP.cart=[];
+  renderCurrentPage();
+  toast('Local cache cleared', 'success');
+}
+
+// ============================================================
+// MODAL SYSTEM
+// ============================================================
+function showModal(title, bodyHtml, onSave) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modalOverlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3 class="syne">${title}</h3>
+      ${bodyHtml}
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-amber" id="modalSaveBtn">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalSaveBtn').onclick = onSave;
+  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+}
+
+function closeModal() {
+  const m = document.getElementById('modalOverlay');
+  if (m) m.remove();
+}
+
+// ============================================================
+// PWA
+// ============================================================
+function initPWA() {
+  const manifest = {
+    name: 'LumpiaPOS',
+    short_name: 'LumpiaPOS',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#0c0a08',
+    theme_color: '#0c0a08',
+    icons: [{
+      src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230c0a08'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='%23f0a030'>L</text></svg>",
+      sizes: '192x192',
+      type: 'image/svg+xml'
+    }]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = URL.createObjectURL(blob);
+  document.head.appendChild(link);
+
+  if ('serviceWorker' in navigator) {
+    const swCode = `
+      self.addEventListener('install', e => { self.skipWaiting(); });
+      self.addEventListener('activate', e => {
+        e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
+        self.clients.claim();
+      });
+      self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
+    `;
+    const swBlob = new Blob([swCode], {type:'application/javascript'});
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+  }
+
+  if ('caches' in window) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  initLogin();
+  initPWA();
+  document.getElementById('ledgerDateFilter').value = todayStr();
+  document.getElementById('reportDate').value = todayStr();
+  document.getElementById('reportMonth').value = todayStr().substring(0,7);
+  document.getElementById('ordersDateFrom').value = todayStr();
+  document.getElementById('ordersDateTo').value = todayStr();
+});
+</script>
+</body>
+</html>
