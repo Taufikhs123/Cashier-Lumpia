@@ -174,6 +174,48 @@ tr:hover td { background:var(--bg3); }
 .stat-card.red .value { color:var(--red); }
 .stat-card.amber .value { color:var(--amber); }
 
+/* Calendar */
+.cal-nav { display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+.cal-nav h2 { flex:1; text-align:center; font-size:18px; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); border:1px solid var(--bg3); border-radius:var(--radius); overflow:hidden; background:var(--bg2); margin-bottom:20px; }
+.cal-header { padding:10px 4px; text-align:center; font-family:'DM Mono',monospace; font-size:11px; color:var(--text3); text-transform:uppercase; background:var(--bg3); border-bottom:1px solid var(--bg4); }
+.cal-cell { min-height:90px; padding:6px 8px; border:1px solid var(--bg3); cursor:pointer; transition:all .15s; position:relative; }
+.cal-cell:hover { background:var(--bg3); }
+.cal-cell.today { background:rgba(240,160,48,.06); }
+.cal-cell.selected { background:rgba(240,160,48,.12); border-color:var(--amber); z-index:1; }
+.cal-cell.empty { background:transparent; cursor:default; }
+.cal-cell.empty:hover { background:transparent; }
+.cal-cell .day-num { font-family:'DM Mono',monospace; font-size:13px; font-weight:700; margin-bottom:4px; }
+.cal-cell.today .day-num { color:var(--amber); }
+.cal-cell .day-sales { font-family:'DM Mono',monospace; font-size:11px; color:var(--green); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cal-cell .day-sales.negative { color:var(--red); }
+.cal-cell .day-orders { font-size:10px; color:var(--text3); margin-top:2px; }
+.cal-cell .day-profit { font-family:'DM Mono',monospace; font-size:10px; margin-top:1px; }
+
+/* Day Detail Panel */
+.day-detail { background:var(--bg2); border:1px solid var(--amber-dim); border-radius:var(--radius); padding:20px; margin-bottom:20px; animation:fadeIn .2s; }
+.day-detail h3 { font-size:16px; margin-bottom:14px; color:var(--amber); }
+.day-detail-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.day-detail-item { background:var(--bg3); border-radius:var(--radius-sm); padding:10px 12px; }
+.day-detail-item .dl { font-size:11px; color:var(--text3); text-transform:uppercase; margin-bottom:2px; }
+.day-detail-item .dv { font-family:'DM Mono',monospace; font-size:16px; font-weight:700; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+
+/* Charts */
+.chart-wrap { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:20px; margin-bottom:20px; }
+.chart-wrap .card-title { margin-bottom:16px; }
+.chart-canvas { width:100%; height:220px; }
+
+/* Yearly month grid */
+.year-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.year-cell { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:14px; cursor:pointer; transition:all .15s; text-align:center; }
+.year-cell:hover { border-color:var(--amber); transform:translateY(-2px); }
+.year-cell.selected { border-color:var(--amber); background:rgba(240,160,48,.08); }
+.year-cell .month-name { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; margin-bottom:6px; }
+.year-cell .month-sales { font-family:'DM Mono',monospace; font-size:14px; color:var(--amber); }
+.year-cell .month-profit { font-family:'DM Mono',monospace; font-size:12px; margin-top:2px; }
+.year-cell .month-orders { font-size:11px; color:var(--text3); margin-top:2px; }
+
 /* Settings */
 .settings-sections { display:flex; flex-direction:column; gap:20px; max-width:700px; }
 .settings-section { background:var(--bg2); border:1px solid var(--bg3); border-radius:var(--radius); padding:20px; }
@@ -342,12 +384,8 @@ tr:hover td { background:var(--bg3); }
       <!-- Page: Reports -->
       <div class="page" id="pageReports">
         <div class="report-tabs">
-          <div class="report-tab active" onclick="switchReportTab('daily')">Daily</div>
-          <div class="report-tab" onclick="switchReportTab('monthly')">Monthly</div>
-        </div>
-        <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center">
-          <input type="date" id="reportDate" onchange="renderReport()">
-          <input type="month" id="reportMonth" onchange="renderReport()" style="display:none">
+          <div class="report-tab active" onclick="switchReportTab('monthly')">Monthly</div>
+          <div class="report-tab" onclick="switchReportTab('yearly')">Yearly</div>
         </div>
         <div class="report-content" id="reportContent"></div>
       </div>
@@ -443,7 +481,8 @@ const APP = {
   ghRepo: '', ghToken: '',
   menu: [], ingredients: [], recipes: [], orders: [], orderItems: [], ledger: [], stockLog: [],
   cart: [], selectedPayment: 'Cash', currentPage: 'Cashier',
-  _ordering: false, reportTab: 'daily',
+  _ordering: false, reportTab: 'monthly',
+  _reportMonth: null, _reportYear: null, _selectedDay: null, _selectedYearMonth: null,
 };
 
 // ---- Helpers ----
@@ -1367,91 +1406,306 @@ async function cancelOrder(orderId) {
 // ============================================================
 function switchReportTab(tab) {
   APP.reportTab = tab;
+  APP._selectedDay = null;
+  APP._selectedYearMonth = null;
   document.querySelectorAll('.report-tab').forEach(t => t.classList.remove('active'));
-  document.querySelector(`.report-tab:${tab==='daily'?'first':'last'}-child`).classList.add('active');
-  document.getElementById('reportDate').style.display = tab==='daily'?'':'none';
-  document.getElementById('reportMonth').style.display = tab==='monthly'?'':'none';
+  document.querySelector(`.report-tab:${tab==='monthly'?'first':'last'}-child`).classList.add('active');
   renderReport();
 }
 
 function renderReport() {
   const content = document.getElementById('reportContent');
-  if (APP.reportTab === 'daily') renderDailyReport(content);
-  else renderMonthlyReport(content);
+  if (APP.reportTab === 'monthly') renderMonthlyCalendar(content);
+  else renderYearlyReport(content);
 }
 
-function renderDailyReport(container) {
-  const date = document.getElementById('reportDate').value || todayStr();
+// ---- Helpers for day stats ----
+function getDayStats(date) {
   const dayOrders = APP.orders.filter(o => normalizeDate(o.date) === date && o.status === 'Completed');
   const dayItems = APP.orderItems.filter(oi => dayOrders.some(o => o.id === oi.order_id));
   const dayLedger = APP.ledger.filter(l => normalizeDate(l.date) === date);
-
   const totalSales = dayOrders.reduce((s,o) => s + Number(o.total), 0);
-  const totalCOGS = calcCOGS(dayItems);
+  const cogs = calcCOGS(dayItems);
   const expenses = dayLedger.filter(l => Number(l.amount) < 0 && l.category !== 'Sales Reversal').reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
-  const netProfit = totalSales - totalCOGS - expenses;
+  const netProfit = totalSales - cogs - expenses;
+  const totalIn = dayLedger.filter(l => Number(l.amount) > 0).reduce((s,l) => s + Number(l.amount), 0);
+  const totalOut = dayLedger.filter(l => Number(l.amount) < 0).reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
+  return { date, orders: dayOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, dayItems, dayLedger };
+}
 
+function getMonthStats(monthStr) {
+  const mOrders = APP.orders.filter(o => normalizeDate(o.date).startsWith(monthStr) && o.status === 'Completed');
+  const mItems = APP.orderItems.filter(oi => mOrders.some(o => o.id === oi.order_id));
+  const mLedger = APP.ledger.filter(l => normalizeDate(l.date).startsWith(monthStr));
+  const totalSales = mOrders.reduce((s,o) => s + Number(o.total), 0);
+  const cogs = calcCOGS(mItems);
+  const expenses = mLedger.filter(l => Number(l.amount) < 0 && l.category !== 'Sales Reversal').reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
+  const netProfit = totalSales - cogs - expenses;
+  const totalIn = mLedger.filter(l => Number(l.amount) > 0).reduce((s,l) => s + Number(l.amount), 0);
+  const totalOut = mLedger.filter(l => Number(l.amount) < 0).reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
+  return { orders: mOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, items: mItems, ledger: mLedger };
+}
+
+// ---- Monthly Calendar ----
+function renderMonthlyCalendar(container) {
+  if (!APP._reportMonth) APP._reportMonth = todayStr().substring(0,7);
+  const [year, mon] = APP._reportMonth.split('-').map(Number);
+  const firstDay = new Date(year, mon-1, 1).getDay();
+  const daysInMonth = new Date(year, mon, 0).getDate();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // Compute daily stats
+  const dailyStats = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = String(year) + '-' + String(mon).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    dailyStats.push(getDayStats(ds));
+  }
+
+  // Month summary
+  const ms = getMonthStats(APP._reportMonth);
+  const lowStock = APP.ingredients.filter(i => Number(i.current_stock) <= Number(i.min_stock));
+
+  // Build calendar cells
+  let calCells = '';
+  ['SUN','MON','TUE','WED','THU','FRI','SAT'].forEach(d => { calCells += `<div class="cal-header">${d}</div>`; });
+  for (let i = 0; i < firstDay; i++) calCells += '<div class="cal-cell empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = dailyStats[d-1];
+    const dateStr = ds.date;
+    const isToday = dateStr === todayStr();
+    const isSelected = dateStr === APP._selectedDay;
+    const profitColor = ds.netProfit >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+    calCells += `<div class="cal-cell${isToday?' today':''}${isSelected?' selected':''}" onclick="selectReportDay('${dateStr}')">
+      <div class="day-num">${d}</div>
+      ${ds.orders > 0 ? `<div class="day-sales${ds.netProfit<0?' negative':''}">${rp(ds.sales)}</div><div class="day-profit" style="${profitColor}">${ds.netProfit>=0?'+':''}${rp(ds.netProfit)}</div><div class="day-orders">${ds.orders} order${ds.orders>1?'s':''}</div>` : ''}
+    </div>`;
+  }
+
+  // Payment breakdown
   const payBreakdown = {};
-  PAYMENT_METHODS.forEach(pm => { payBreakdown[pm] = dayOrders.filter(o => o.payment === pm).reduce((s,o) => s + Number(o.total), 0); });
+  PAYMENT_METHODS.forEach(pm => {
+    payBreakdown[pm] = APP.orders.filter(o => normalizeDate(o.date).startsWith(APP._reportMonth) && o.status === 'Completed' && o.payment === pm).reduce((s,o) => s + Number(o.total), 0);
+  });
 
   let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
-  dayLedger.forEach(l => {
+  ms.ledger.forEach(l => {
     const amt = Number(l.amount);
     const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
     if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
     else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
   });
 
-  const topItems = {};
-  dayItems.forEach(i => {
-    topItems[i.menu_name] = (topItems[i.menu_name]||0) + Number(i.qty);
-  });
-  const sorted = Object.entries(topItems).sort((a,b) => b[1]-a[1]);
+  // Top items
+  const allItems = {};
+  ms.items.forEach(i => { allItems[i.menu_name] = (allItems[i.menu_name]||0) + Number(i.qty); });
+  const sortedItems = Object.entries(allItems).sort((a,b) => b[1]-a[1]);
 
   container.innerHTML = `
-    <div class="report-grid">
-      <div class="stat-card"><div class="label">Orders</div><div class="value">${dayOrders.length}</div></div>
-      <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(totalSales)}</div></div>
-      <div class="stat-card red"><div class="label">COGS</div><div class="value">${rp(totalCOGS)}</div></div>
-      <div class="stat-card red"><div class="label">Expenses</div><div class="value">${rp(expenses)}</div></div>
-      <div class="stat-card ${netProfit>=0?'green':'red'}"><div class="label">Net Profit</div><div class="value">${rp(netProfit)}</div></div>
+    <div class="cal-nav">
+      <button class="btn btn-ghost" onclick="changeReportMonth(-1)">&larr; Prev</button>
+      <h2 class="syne">${monthNames[mon-1]} ${year}</h2>
+      <button class="btn btn-ghost" onclick="changeReportMonth(1)">Next &rarr;</button>
     </div>
-    <div class="report-grid">
-      ${PAYMENT_METHODS.map(pm => `<div class="stat-card"><div class="label">${pm}</div><div class="value mono" style="font-size:16px">${rp(payBreakdown[pm])}</div></div>`).join('')}
+    <div class="cal-grid">${calCells}</div>
+    <div id="dayDetailPanel"></div>
+    <div class="report-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
+      <div class="stat-card"><div class="label">Total Orders</div><div class="value">${ms.orders}</div></div>
+      <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(ms.sales)}</div></div>
+      <div class="stat-card red"><div class="label">COGS</div><div class="value">${rp(ms.cogs)}</div></div>
+      <div class="stat-card red"><div class="label">Expenses</div><div class="value">${rp(ms.expenses)}</div></div>
+      <div class="stat-card ${ms.netProfit>=0?'green':'red'}"><div class="label">Net Profit</div><div class="value">${rp(ms.netProfit)}</div></div>
     </div>
     <div class="report-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="label">Cash</div><div class="value" style="color:var(--green);font-size:18px">${rp(cashIn-cashOut)}</div><div class="sub">In: ${rp(cashIn)} | Out: ${rp(cashOut)}</div></div>
       <div class="stat-card"><div class="label">QRIS</div><div class="value" style="color:var(--blue);font-size:18px">${rp(qrisIn-qrisOut)}</div><div class="sub">In: ${rp(qrisIn)} | Out: ${rp(qrisOut)}</div></div>
       <div class="stat-card"><div class="label">Total</div><div class="value" style="color:var(--amber);font-size:18px">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
     </div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-title">Top Items</div>
-      <table><thead><tr><th>Item</th><th>Qty</th></tr></thead>
-      <tbody>${sorted.map(([name,qty]) => `<tr><td>${name}</td><td class="mono">${qty}</td></tr>`).join('')}</tbody></table>
+    <div class="report-grid">
+      ${PAYMENT_METHODS.map(pm => `<div class="stat-card"><div class="label">${pm}</div><div class="value mono" style="font-size:16px">${rp(payBreakdown[pm])}</div></div>`).join('')}
     </div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-title">Finance Log</div>
-      <table><thead><tr><th>Time</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Payment</th></tr></thead>
-      <tbody>${dayLedger.sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(l => `<tr><td class="mono">${l.time||''}</td><td><span class="badge ${Number(l.amount)>=0?'badge-green':'badge-red'}">${l.type}</span></td><td>${l.category}</td><td>${l.description}</td><td class="mono" style="color:${Number(l.amount)>=0?'var(--green)':'var(--red)'}">${rp(l.amount)}</td><td>${l.payment||''}</td></tr>`).join('')}</tbody></table>
+    <div class="chart-wrap"><div class="card-title">Daily Net Profit</div><canvas class="chart-canvas" id="chartProfit"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">Daily Sales</div><canvas class="chart-canvas" id="chartSales"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">Daily Orders</div><canvas class="chart-canvas" id="chartOrders"></canvas></div>
+    <div class="card" style="margin-top:0;margin-bottom:20px">
+      <div class="card-title">Top Selling Items</div>
+      <table><thead><tr><th>Item</th><th>Qty Sold</th></tr></thead>
+      <tbody>${sortedItems.map(([name,qty]) => `<tr><td>${name}</td><td class="mono">${qty}</td></tr>`).join('')}</tbody></table>
+    </div>
+    ${lowStock.length ? `<div class="card" style="border-color:var(--red);margin-bottom:20px">
+      <div class="card-title" style="color:var(--red)">Restock Needed</div>
+      <table><thead><tr><th>Ingredient</th><th>Current</th><th>Min</th><th>Unit</th></tr></thead>
+      <tbody>${lowStock.map(i => `<tr><td>${i.name}</td><td class="low-stock">${Number(i.current_stock).toFixed(1)}</td><td>${i.min_stock}</td><td>${i.unit}</td></tr>`).join('')}</tbody></table>
+    </div>` : ''}
+  `;
+
+  // Draw charts
+  setTimeout(() => {
+    drawBarChart('chartProfit', dailyStats.map(s=>s.netProfit), dailyStats.map((_,i)=>i+1), v => rp(v), true);
+    drawBarChart('chartSales', dailyStats.map(s=>s.sales), dailyStats.map((_,i)=>i+1), v => rp(v), false);
+    drawBarChart('chartOrders', dailyStats.map(s=>s.orders), dailyStats.map((_,i)=>i+1), v => String(v), false);
+    if (APP._selectedDay) showDayDetail(APP._selectedDay);
+  }, 50);
+}
+
+function changeReportMonth(delta) {
+  const [y, m] = APP._reportMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  APP._reportMonth = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  APP._selectedDay = null;
+  renderReport();
+}
+
+function selectReportDay(dateStr) {
+  APP._selectedDay = APP._selectedDay === dateStr ? null : dateStr;
+  // Update selected state visually
+  document.querySelectorAll('.cal-cell').forEach(c => c.classList.remove('selected'));
+  if (APP._selectedDay) {
+    const cells = document.querySelectorAll('.cal-cell:not(.empty)');
+    const day = Number(dateStr.split('-')[2]);
+    if (cells[day-1]) cells[day-1].classList.add('selected');
+    showDayDetail(dateStr);
+  } else {
+    document.getElementById('dayDetailPanel').innerHTML = '';
+  }
+}
+
+function showDayDetail(dateStr) {
+  const s = getDayStats(dateStr);
+  const panel = document.getElementById('dayDetailPanel');
+  const dayName = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  // Top items for day
+  const topItems = {};
+  s.dayItems.forEach(i => { topItems[i.menu_name] = (topItems[i.menu_name]||0) + Number(i.qty); });
+  const sorted = Object.entries(topItems).sort((a,b) => b[1]-a[1]).slice(0,5);
+
+  let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
+  s.dayLedger.forEach(l => {
+    const amt = Number(l.amount);
+    const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
+    if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
+    else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
+  });
+
+  panel.innerHTML = `
+    <div class="day-detail">
+      <h3>${dayName}</h3>
+      <div class="day-detail-grid">
+        <div class="day-detail-item"><div class="dl">Total Sales</div><div class="dv" style="color:var(--amber)">${rp(s.sales)}</div></div>
+        <div class="day-detail-item"><div class="dl">Orders</div><div class="dv">${s.orders}</div></div>
+        <div class="day-detail-item"><div class="dl">COGS</div><div class="dv" style="color:var(--red)">${rp(s.cogs)}</div></div>
+        <div class="day-detail-item"><div class="dl">Expenses</div><div class="dv" style="color:var(--red)">${rp(s.expenses)}</div></div>
+        <div class="day-detail-item"><div class="dl">Net Profit</div><div class="dv" style="color:${s.netProfit>=0?'var(--green)':'var(--red)'}">${rp(s.netProfit)}</div></div>
+        <div class="day-detail-item"><div class="dl">Cash Flow</div><div class="dv" style="color:var(--green)">${rp(cashIn-cashOut)}</div></div>
+        <div class="day-detail-item"><div class="dl">QRIS Flow</div><div class="dv" style="color:var(--blue)">${rp(qrisIn-qrisOut)}</div></div>
+        <div class="day-detail-item"><div class="dl">Total Money</div><div class="dv" style="color:var(--amber)">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
+      </div>
+      ${sorted.length ? `<div style="margin-top:14px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;margin-bottom:6px;font-family:'DM Mono',monospace">Top Items</div>${sorted.map(([n,q]) => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px"><span>${n}</span><span class="mono">${q}x</span></div>`).join('')}</div>` : '<div style="margin-top:10px;color:var(--text3);font-size:13px">No orders on this day</div>'}
     </div>`;
 }
 
-function renderMonthlyReport(container) {
-  const month = document.getElementById('reportMonth').value || todayStr().substring(0,7);
-  const monthOrders = APP.orders.filter(o => normalizeDate(o.date).startsWith(month) && o.status === 'Completed');
-  const monthItems = APP.orderItems.filter(oi => monthOrders.some(o => o.id === oi.order_id));
-  const monthLedger = APP.ledger.filter(l => normalizeDate(l.date).startsWith(month));
+// ---- Yearly Report ----
+function renderYearlyReport(container) {
+  if (!APP._reportYear) APP._reportYear = new Date().getFullYear();
+  const year = APP._reportYear;
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fullMonthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  const totalSales = monthOrders.reduce((s,o) => s + Number(o.total), 0);
-  const totalCOGS = calcCOGS(monthItems);
-  const expenses = monthLedger.filter(l => Number(l.amount) < 0 && l.category !== 'Sales Reversal').reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
-  const netProfit = totalSales - totalCOGS - expenses;
+  // Per-month stats
+  const monthlyStats = [];
+  for (let m = 1; m <= 12; m++) {
+    const ms = String(year) + '-' + String(m).padStart(2,'0');
+    monthlyStats.push({ month: ms, label: monthNames[m-1], fullLabel: fullMonthNames[m-1], ...getMonthStats(ms) });
+  }
 
+  // Year totals
+  const ys = { orders:0, sales:0, cogs:0, expenses:0, netProfit:0, totalIn:0, totalOut:0 };
+  monthlyStats.forEach(m => { ys.orders+=m.orders; ys.sales+=m.sales; ys.cogs+=m.cogs; ys.expenses+=m.expenses; ys.netProfit+=m.netProfit; ys.totalIn+=m.totalIn; ys.totalOut+=m.totalOut; });
+
+  let yearLedger = APP.ledger.filter(l => normalizeDate(l.date).startsWith(String(year)));
+  let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
+  yearLedger.forEach(l => {
+    const amt = Number(l.amount);
+    const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
+    if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
+    else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
+  });
+
+  // Payment breakdown
   const payBreakdown = {};
-  PAYMENT_METHODS.forEach(pm => { payBreakdown[pm] = monthOrders.filter(o => o.payment === pm).reduce((s,o) => s + Number(o.total), 0); });
+  PAYMENT_METHODS.forEach(pm => {
+    payBreakdown[pm] = APP.orders.filter(o => normalizeDate(o.date).startsWith(String(year)) && o.status === 'Completed' && o.payment === pm).reduce((s,o) => s + Number(o.total), 0);
+  });
+
+  container.innerHTML = `
+    <div class="cal-nav">
+      <button class="btn btn-ghost" onclick="changeReportYear(-1)">&larr; ${year-1}</button>
+      <h2 class="syne">${year}</h2>
+      <button class="btn btn-ghost" onclick="changeReportYear(1)">${year+1} &rarr;</button>
+    </div>
+    <div class="year-grid">${monthlyStats.map(m => `
+      <div class="year-cell${m.month===APP._selectedYearMonth?' selected':''}" onclick="selectYearMonth('${m.month}')">
+        <div class="month-name">${m.label}</div>
+        <div class="month-sales">${rp(m.sales)}</div>
+        <div class="month-profit" style="color:${m.netProfit>=0?'var(--green)':'var(--red)'}">${m.netProfit>=0?'+':''}${rp(m.netProfit)}</div>
+        <div class="month-orders">${m.orders} order${m.orders!==1?'s':''}</div>
+      </div>`).join('')}
+    </div>
+    <div id="yearMonthDetailPanel"></div>
+    <div class="report-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
+      <div class="stat-card"><div class="label">Total Orders</div><div class="value">${ys.orders}</div></div>
+      <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(ys.sales)}</div></div>
+      <div class="stat-card red"><div class="label">COGS</div><div class="value">${rp(ys.cogs)}</div></div>
+      <div class="stat-card red"><div class="label">Expenses</div><div class="value">${rp(ys.expenses)}</div></div>
+      <div class="stat-card ${ys.netProfit>=0?'green':'red'}"><div class="label">Net Profit</div><div class="value">${rp(ys.netProfit)}</div></div>
+    </div>
+    <div class="report-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="label">Cash</div><div class="value" style="color:var(--green);font-size:18px">${rp(cashIn-cashOut)}</div><div class="sub">In: ${rp(cashIn)} | Out: ${rp(cashOut)}</div></div>
+      <div class="stat-card"><div class="label">QRIS</div><div class="value" style="color:var(--blue);font-size:18px">${rp(qrisIn-qrisOut)}</div><div class="sub">In: ${rp(qrisIn)} | Out: ${rp(qrisOut)}</div></div>
+      <div class="stat-card"><div class="label">Total</div><div class="value" style="color:var(--amber);font-size:18px">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
+    </div>
+    <div class="report-grid">
+      ${PAYMENT_METHODS.map(pm => `<div class="stat-card"><div class="label">${pm}</div><div class="value mono" style="font-size:16px">${rp(payBreakdown[pm])}</div></div>`).join('')}
+    </div>
+    <div class="chart-wrap"><div class="card-title">Monthly Net Profit</div><canvas class="chart-canvas" id="chartYProfit"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">Monthly Sales</div><canvas class="chart-canvas" id="chartYSales"></canvas></div>
+    <div class="chart-wrap"><div class="card-title">Monthly Orders</div><canvas class="chart-canvas" id="chartYOrders"></canvas></div>
+  `;
+
+  setTimeout(() => {
+    drawBarChart('chartYProfit', monthlyStats.map(s=>s.netProfit), monthNames, v=>rp(v), true);
+    drawBarChart('chartYSales', monthlyStats.map(s=>s.sales), monthNames, v=>rp(v), false);
+    drawBarChart('chartYOrders', monthlyStats.map(s=>s.orders), monthNames, v=>String(v), false);
+    if (APP._selectedYearMonth) showYearMonthDetail(APP._selectedYearMonth);
+  }, 50);
+}
+
+function changeReportYear(delta) {
+  APP._reportYear += delta;
+  APP._selectedYearMonth = null;
+  renderReport();
+}
+
+function selectYearMonth(monthStr) {
+  APP._selectedYearMonth = APP._selectedYearMonth === monthStr ? null : monthStr;
+  document.querySelectorAll('.year-cell').forEach(c => c.classList.remove('selected'));
+  if (APP._selectedYearMonth) {
+    const idx = Number(monthStr.split('-')[1]) - 1;
+    document.querySelectorAll('.year-cell')[idx]?.classList.add('selected');
+    showYearMonthDetail(monthStr);
+  } else {
+    document.getElementById('yearMonthDetailPanel').innerHTML = '';
+  }
+}
+
+function showYearMonthDetail(monthStr) {
+  const ms = getMonthStats(monthStr);
+  const panel = document.getElementById('yearMonthDetailPanel');
+  const [y,m] = monthStr.split('-').map(Number);
+  const fullMonthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
-  monthLedger.forEach(l => {
+  ms.ledger.forEach(l => {
     const amt = Number(l.amount);
     const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
     if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
@@ -1459,37 +1713,117 @@ function renderMonthlyReport(container) {
   });
 
   const allItems = {};
-  monthItems.forEach(i => { allItems[i.menu_name] = (allItems[i.menu_name]||0) + Number(i.qty); });
-  const sortedItems = Object.entries(allItems).sort((a,b) => b[1]-a[1]);
+  ms.items.forEach(i => { allItems[i.menu_name] = (allItems[i.menu_name]||0) + Number(i.qty); });
+  const sorted = Object.entries(allItems).sort((a,b) => b[1]-a[1]).slice(0,8);
 
-  const lowStock = APP.ingredients.filter(i => Number(i.current_stock) <= Number(i.min_stock));
+  panel.innerHTML = `
+    <div class="day-detail">
+      <h3>${fullMonthNames[m-1]} ${y}</h3>
+      <div class="day-detail-grid">
+        <div class="day-detail-item"><div class="dl">Total Sales</div><div class="dv" style="color:var(--amber)">${rp(ms.sales)}</div></div>
+        <div class="day-detail-item"><div class="dl">Orders</div><div class="dv">${ms.orders}</div></div>
+        <div class="day-detail-item"><div class="dl">COGS</div><div class="dv" style="color:var(--red)">${rp(ms.cogs)}</div></div>
+        <div class="day-detail-item"><div class="dl">Expenses</div><div class="dv" style="color:var(--red)">${rp(ms.expenses)}</div></div>
+        <div class="day-detail-item"><div class="dl">Net Profit</div><div class="dv" style="color:${ms.netProfit>=0?'var(--green)':'var(--red)'}">${rp(ms.netProfit)}</div></div>
+        <div class="day-detail-item"><div class="dl">Cash Flow</div><div class="dv" style="color:var(--green)">${rp(cashIn-cashOut)}</div></div>
+        <div class="day-detail-item"><div class="dl">QRIS Flow</div><div class="dv" style="color:var(--blue)">${rp(qrisIn-qrisOut)}</div></div>
+        <div class="day-detail-item"><div class="dl">Total Money</div><div class="dv" style="color:var(--amber)">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
+      </div>
+      ${sorted.length ? `<div style="margin-top:14px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;margin-bottom:6px;font-family:'DM Mono',monospace">Top Items</div>${sorted.map(([n,q]) => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px"><span>${n}</span><span class="mono">${q}x</span></div>`).join('')}</div>` : ''}
+    </div>`;
+}
 
-  container.innerHTML = `
-    <div class="report-grid">
-      <div class="stat-card"><div class="label">Orders</div><div class="value">${monthOrders.length}</div></div>
-      <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(totalSales)}</div></div>
-      <div class="stat-card red"><div class="label">COGS</div><div class="value">${rp(totalCOGS)}</div></div>
-      <div class="stat-card red"><div class="label">Expenses</div><div class="value">${rp(expenses)}</div></div>
-      <div class="stat-card ${netProfit>=0?'green':'red'}"><div class="label">Net Profit</div><div class="value">${rp(netProfit)}</div></div>
-    </div>
-    <div class="report-grid">
-      ${PAYMENT_METHODS.map(pm => `<div class="stat-card"><div class="label">${pm}</div><div class="value mono" style="font-size:16px">${rp(payBreakdown[pm])}</div></div>`).join('')}
-    </div>
-    <div class="report-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="label">Cash</div><div class="value" style="color:var(--green);font-size:18px">${rp(cashIn-cashOut)}</div><div class="sub">In: ${rp(cashIn)} | Out: ${rp(cashOut)}</div></div>
-      <div class="stat-card"><div class="label">QRIS</div><div class="value" style="color:var(--blue);font-size:18px">${rp(qrisIn-qrisOut)}</div><div class="sub">In: ${rp(qrisIn)} | Out: ${rp(qrisOut)}</div></div>
-      <div class="stat-card"><div class="label">Total</div><div class="value" style="color:var(--amber);font-size:18px">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-title">Menu Sales</div>
-      <table><thead><tr><th>Item</th><th>Qty Sold</th></tr></thead>
-      <tbody>${sortedItems.map(([name,qty]) => `<tr><td>${name}</td><td class="mono">${qty}</td></tr>`).join('')}</tbody></table>
-    </div>
-    ${lowStock.length ? `<div class="card" style="margin-top:16px;border-color:var(--red)">
-      <div class="card-title" style="color:var(--red)">⚠ Restock Needed</div>
-      <table><thead><tr><th>Ingredient</th><th>Current</th><th>Min</th><th>Unit</th></tr></thead>
-      <tbody>${lowStock.map(i => `<tr><td>${i.name}</td><td class="low-stock">${Number(i.current_stock).toFixed(1)}</td><td>${i.min_stock}</td><td>${i.unit}</td></tr>`).join('')}</tbody></table>
-    </div>` : ''}`;
+// ---- Canvas Bar Chart ----
+function drawBarChart(canvasId, values, labels, formatFn, allowNeg) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const padL = 12, padR = 12, padT = 20, padB = 30;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+
+  const maxVal = Math.max(...values.map(Math.abs), 1);
+  const barW = Math.max(2, (chartW / values.length) - 2);
+  const gap = (chartW - barW * values.length) / values.length;
+
+  // Zero line
+  const zeroY = allowNeg ? padT + chartH * 0.5 : padT + chartH;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(136,120,96,0.15)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (chartH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+  }
+
+  // Bars
+  values.forEach((v, i) => {
+    const x = padL + i * (barW + gap) + gap/2;
+    let barH, y;
+    if (allowNeg) {
+      barH = (Math.abs(v) / maxVal) * (chartH * 0.45);
+      y = v >= 0 ? zeroY - barH : zeroY;
+    } else {
+      barH = (v / maxVal) * chartH;
+      y = padT + chartH - barH;
+    }
+
+    // Gradient
+    const grad = ctx.createLinearGradient(x, y, x, y + barH);
+    if (v >= 0) { grad.addColorStop(0, '#f0a030'); grad.addColorStop(1, '#d48a20'); }
+    else { grad.addColorStop(0, '#e84040'); grad.addColorStop(1, '#c03030'); }
+    ctx.fillStyle = grad;
+
+    // Rounded top
+    const r = Math.min(3, barW/2);
+    ctx.beginPath();
+    if (v >= 0) {
+      ctx.moveTo(x, y + barH); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.lineTo(x + barW - r, y); ctx.quadraticCurveTo(x + barW, y, x + barW, y + r);
+      ctx.lineTo(x + barW, y + barH); ctx.closePath();
+    } else {
+      ctx.moveTo(x, y); ctx.lineTo(x, y + barH - r); ctx.quadraticCurveTo(x, y + barH, x + r, y + barH);
+      ctx.lineTo(x + barW - r, y + barH); ctx.quadraticCurveTo(x + barW, y + barH, x + barW, y + barH - r);
+      ctx.lineTo(x + barW, y); ctx.closePath();
+    }
+    ctx.fill();
+
+    // Label
+    if (labels.length <= 31) {
+      ctx.fillStyle = 'rgba(136,120,96,0.6)';
+      ctx.font = '10px "DM Mono",monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(labels[i]), x + barW/2, H - 6);
+    }
+  });
+
+  // Zero line for neg charts
+  if (allowNeg) {
+    ctx.strokeStyle = 'rgba(240,160,48,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(W - padR, zeroY); ctx.stroke();
+  }
+
+  // Hover tooltip
+  canvas.onmousemove = (e) => {
+    const rect2 = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect2.left;
+    const idx = Math.floor((mx - padL) / (barW + gap));
+    if (idx >= 0 && idx < values.length) {
+      canvas.title = labels[idx] + ': ' + formatFn(values[idx]);
+      canvas.style.cursor = 'crosshair';
+    } else {
+      canvas.title = '';
+      canvas.style.cursor = 'default';
+    }
+  };
+}
 }
 
 function calcCOGS(orderItems) {
@@ -1682,8 +2016,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initLogin();
   initPWA();
   document.getElementById('ledgerDateFilter').value = todayStr();
-  document.getElementById('reportDate').value = todayStr();
-  document.getElementById('reportMonth').value = todayStr().substring(0,7);
   document.getElementById('ordersDateFrom').value = todayStr();
   document.getElementById('ordersDateTo').value = todayStr();
 });
