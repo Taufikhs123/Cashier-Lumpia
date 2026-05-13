@@ -1420,6 +1420,18 @@ function renderReport() {
 }
 
 // ---- Helpers for day stats ----
+function getOpeningBalance(beforeDate) {
+  return APP.ledger
+    .filter(l => normalizeDate(l.date) < beforeDate)
+    .reduce((s, l) => s + Number(l.amount), 0);
+}
+
+function getMonthOpeningBalance(monthStr) {
+  return APP.ledger
+    .filter(l => normalizeDate(l.date) < monthStr + '-01')
+    .reduce((s, l) => s + Number(l.amount), 0);
+}
+
 function getDayStats(date) {
   const dayOrders = APP.orders.filter(o => normalizeDate(o.date) === date && o.status === 'Completed');
   const dayItems = APP.orderItems.filter(oi => dayOrders.some(o => o.id === oi.order_id));
@@ -1430,7 +1442,10 @@ function getDayStats(date) {
   const netProfit = totalSales - cogs - expenses;
   const totalIn = dayLedger.filter(l => Number(l.amount) > 0).reduce((s,l) => s + Number(l.amount), 0);
   const totalOut = dayLedger.filter(l => Number(l.amount) < 0).reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
-  return { date, orders: dayOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, dayItems, dayLedger };
+  const dayNet = dayLedger.reduce((s, l) => s + Number(l.amount), 0);
+  const opening = getOpeningBalance(date);
+  const closing = opening + dayNet;
+  return { date, orders: dayOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, opening, closing, dayNet, dayItems, dayLedger };
 }
 
 function getMonthStats(monthStr) {
@@ -1443,7 +1458,10 @@ function getMonthStats(monthStr) {
   const netProfit = totalSales - cogs - expenses;
   const totalIn = mLedger.filter(l => Number(l.amount) > 0).reduce((s,l) => s + Number(l.amount), 0);
   const totalOut = mLedger.filter(l => Number(l.amount) < 0).reduce((s,l) => s + Math.abs(Number(l.amount)), 0);
-  return { orders: mOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, items: mItems, ledger: mLedger };
+  const monthNet = mLedger.reduce((s, l) => s + Number(l.amount), 0);
+  const opening = getMonthOpeningBalance(monthStr);
+  const closing = opening + monthNet;
+  return { orders: mOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, opening, closing, monthNet, items: mItems, ledger: mLedger };
 }
 
 // ---- Monthly Calendar ----
@@ -1508,6 +1526,10 @@ function renderMonthlyCalendar(container) {
     </div>
     <div class="cal-grid">${calCells}</div>
     <div id="dayDetailPanel"></div>
+    <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
+      <div class="stat-card"><div class="label">Opening Balance</div><div class="value" style="color:var(--blue)">${rp(ms.opening)}</div><div class="sub">Money at start of month</div></div>
+      <div class="stat-card"><div class="label">Closing Balance</div><div class="value" style="color:var(--amber)">${rp(ms.closing)}</div><div class="sub">Money at end of month</div></div>
+    </div>
     <div class="report-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
       <div class="stat-card"><div class="label">Total Orders</div><div class="value">${ms.orders}</div></div>
       <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(ms.sales)}</div></div>
@@ -1591,6 +1613,8 @@ function showDayDetail(dateStr) {
     <div class="day-detail">
       <h3>${dayName}</h3>
       <div class="day-detail-grid">
+        <div class="day-detail-item" style="border-left:3px solid var(--blue)"><div class="dl">Opening Balance</div><div class="dv" style="color:var(--blue)">${rp(s.opening)}</div></div>
+        <div class="day-detail-item" style="border-left:3px solid var(--amber)"><div class="dl">Closing Balance</div><div class="dv" style="color:var(--amber)">${rp(s.closing)}</div></div>
         <div class="day-detail-item"><div class="dl">Total Sales</div><div class="dv" style="color:var(--amber)">${rp(s.sales)}</div></div>
         <div class="day-detail-item"><div class="dl">Orders</div><div class="dv">${s.orders}</div></div>
         <div class="day-detail-item"><div class="dl">COGS</div><div class="dv" style="color:var(--red)">${rp(s.cogs)}</div></div>
@@ -1598,7 +1622,6 @@ function showDayDetail(dateStr) {
         <div class="day-detail-item"><div class="dl">Net Profit</div><div class="dv" style="color:${s.netProfit>=0?'var(--green)':'var(--red)'}">${rp(s.netProfit)}</div></div>
         <div class="day-detail-item"><div class="dl">Cash Flow</div><div class="dv" style="color:var(--green)">${rp(cashIn-cashOut)}</div></div>
         <div class="day-detail-item"><div class="dl">QRIS Flow</div><div class="dv" style="color:var(--blue)">${rp(qrisIn-qrisOut)}</div></div>
-        <div class="day-detail-item"><div class="dl">Total Money</div><div class="dv" style="color:var(--amber)">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
       </div>
       ${sorted.length ? `<div style="margin-top:14px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;margin-bottom:6px;font-family:'DM Mono',monospace">Top Items</div>${sorted.map(([n,q]) => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px"><span>${n}</span><span class="mono">${q}x</span></div>`).join('')}</div>` : '<div style="margin-top:10px;color:var(--text3);font-size:13px">No orders on this day</div>'}
     </div>`;
@@ -1652,6 +1675,10 @@ function renderYearlyReport(container) {
       </div>`).join('')}
     </div>
     <div id="yearMonthDetailPanel"></div>
+    <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
+      <div class="stat-card"><div class="label">Opening Balance</div><div class="value" style="color:var(--blue)">${rp(monthlyStats[0].opening)}</div><div class="sub">Money at start of year</div></div>
+      <div class="stat-card"><div class="label">Closing Balance</div><div class="value" style="color:var(--amber)">${rp(monthlyStats[11].closing)}</div><div class="sub">Money at end of year</div></div>
+    </div>
     <div class="report-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
       <div class="stat-card"><div class="label">Total Orders</div><div class="value">${ys.orders}</div></div>
       <div class="stat-card amber"><div class="label">Total Sales</div><div class="value">${rp(ys.sales)}</div></div>
@@ -1720,6 +1747,8 @@ function showYearMonthDetail(monthStr) {
     <div class="day-detail">
       <h3>${fullMonthNames[m-1]} ${y}</h3>
       <div class="day-detail-grid">
+        <div class="day-detail-item" style="border-left:3px solid var(--blue)"><div class="dl">Opening Balance</div><div class="dv" style="color:var(--blue)">${rp(ms.opening)}</div></div>
+        <div class="day-detail-item" style="border-left:3px solid var(--amber)"><div class="dl">Closing Balance</div><div class="dv" style="color:var(--amber)">${rp(ms.closing)}</div></div>
         <div class="day-detail-item"><div class="dl">Total Sales</div><div class="dv" style="color:var(--amber)">${rp(ms.sales)}</div></div>
         <div class="day-detail-item"><div class="dl">Orders</div><div class="dv">${ms.orders}</div></div>
         <div class="day-detail-item"><div class="dl">COGS</div><div class="dv" style="color:var(--red)">${rp(ms.cogs)}</div></div>
@@ -1727,7 +1756,6 @@ function showYearMonthDetail(monthStr) {
         <div class="day-detail-item"><div class="dl">Net Profit</div><div class="dv" style="color:${ms.netProfit>=0?'var(--green)':'var(--red)'}">${rp(ms.netProfit)}</div></div>
         <div class="day-detail-item"><div class="dl">Cash Flow</div><div class="dv" style="color:var(--green)">${rp(cashIn-cashOut)}</div></div>
         <div class="day-detail-item"><div class="dl">QRIS Flow</div><div class="dv" style="color:var(--blue)">${rp(qrisIn-qrisOut)}</div></div>
-        <div class="day-detail-item"><div class="dl">Total Money</div><div class="dv" style="color:var(--amber)">${rp(cashIn+qrisIn-cashOut-qrisOut)}</div></div>
       </div>
       ${sorted.length ? `<div style="margin-top:14px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;margin-bottom:6px;font-family:'DM Mono',monospace">Top Items</div>${sorted.map(([n,q]) => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px"><span>${n}</span><span class="mono">${q}x</span></div>`).join('')}</div>` : ''}
     </div>`;
