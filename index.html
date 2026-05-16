@@ -132,6 +132,7 @@ tr:hover td { background:var(--bg3); }
 .pkg-chip .pkg-qty { display:flex; align-items:center; gap:3px; margin-left:2px; }
 .pkg-chip .pkg-qty button { width:18px; height:18px; border-radius:50%; background:var(--bg4); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; padding:0; border:none; color:var(--text1); cursor:pointer; }
 .pkg-chip .pkg-qty span { font-family:'DM Mono',monospace; font-size:11px; min-width:14px; text-align:center; }
+.pkg-chip.out { opacity:.5; }
 
 /* Stock */
 .stock-actions { display:flex; gap:8px; margin-bottom:16px; }
@@ -489,12 +490,14 @@ const QRIS_METHODS = ['DANA','GoFood','ShopeeFood','GoPay','Grab'];
 
 // Packaging add-ons (editable in Settings)
 let PACKAGING = JSON.parse(localStorage.getItem('mb_packaging') || 'null') || [
-  { id: 'box_s', name: 'Box S', price: 2000, icon: '📦' },
-  { id: 'box_m', name: 'Box M', price: 3000, icon: '📦' },
-  { id: 'box_l', name: 'Box L', price: 5000, icon: '📦' },
-  { id: 'bag_s', name: 'Bag S', price: 500, icon: '🛍️' },
-  { id: 'bag_l', name: 'Bag L', price: 1000, icon: '🛍️' },
+  { id: 'box_s', name: 'Box S', price: 2000, icon: '📦', stock: 0 },
+  { id: 'box_m', name: 'Box M', price: 3000, icon: '📦', stock: 0 },
+  { id: 'box_l', name: 'Box L', price: 5000, icon: '📦', stock: 0 },
+  { id: 'bag_s', name: 'Bag S', price: 500, icon: '🛍️', stock: 0 },
+  { id: 'bag_l', name: 'Bag L', price: 1000, icon: '🛍️', stock: 0 },
 ];
+// Ensure stock field exists on old data
+PACKAGING.forEach(p => { if (p.stock === undefined) p.stock = 0; });
 function savePackaging() { localStorage.setItem('mb_packaging', JSON.stringify(PACKAGING)); }
 
 const PAGES = [
@@ -844,13 +847,15 @@ function renderPackaging() {
   PACKAGING.forEach(pkg => {
     const inCart = APP.packaging.find(p => p.id === pkg.id);
     const qty = inCart ? inCart.qty : 0;
+    const stk = Number(pkg.stock) || 0;
+    const stockBadge = `<span style="font-size:9px;color:${stk<=5?(stk<=0?'var(--red)':'var(--amber)'):'var(--text3)'};font-family:'DM Mono',monospace">${stk}</span>`;
     const chip = document.createElement('div');
-    chip.className = 'pkg-chip' + (qty > 0 ? ' active' : '');
+    chip.className = 'pkg-chip' + (qty > 0 ? ' active' : '') + (stk <= 0 ? ' out' : '');
     if (qty === 0) {
-      chip.innerHTML = `<span class="pkg-icon">${pkg.icon}</span><span class="pkg-name">${pkg.name}</span><span class="pkg-price">${rp(pkg.price)}</span>`;
+      chip.innerHTML = `<span class="pkg-icon">${pkg.icon}</span><span class="pkg-name">${pkg.name}</span><span class="pkg-price">${rp(pkg.price)}</span>${stockBadge}`;
       chip.onclick = () => addPackaging(pkg.id);
     } else {
-      chip.innerHTML = `<span class="pkg-icon">${pkg.icon}</span><span class="pkg-name">${pkg.name}</span><div class="pkg-qty"><button type="button" onclick="event.stopPropagation();changePkg('${pkg.id}',-1)">−</button><span>${qty}</span><button type="button" onclick="event.stopPropagation();changePkg('${pkg.id}',1)">+</button></div>`;
+      chip.innerHTML = `<span class="pkg-icon">${pkg.icon}</span><span class="pkg-name">${pkg.name}</span><div class="pkg-qty"><button type="button" onclick="event.stopPropagation();changePkg('${pkg.id}',-1)">−</button><span>${qty}</span><button type="button" onclick="event.stopPropagation();changePkg('${pkg.id}',1)">+</button></div>${stockBadge}`;
     }
     grid.appendChild(chip);
   });
@@ -914,11 +919,14 @@ async function placeOrder() {
     total += price * c.qty;
     return { menu_id: c.menu_id, menu_name: c.menu_name, qty: c.qty, price: price };
   });
-  // Add packaging as order items
+  // Add packaging as order items & deduct stock
   APP.packaging.forEach(p => {
     total += p.price * p.qty;
     items.push({ menu_id: 'PKG_' + p.id, menu_name: p.name, qty: p.qty, price: p.price });
+    const pkgItem = PACKAGING.find(x => x.id === p.id);
+    if (pkgItem) { pkgItem.stock = Math.max(0, (Number(pkgItem.stock)||0) - p.qty); }
   });
+  if (APP.packaging.length > 0) savePackaging();
   if (APP.taxRate > 0) total += total * APP.taxRate / 100;
   total = Math.round(total);
 
@@ -1597,7 +1605,7 @@ function renderMonthlyCalendar(container) {
     const dateStr = ds.date;
     const isToday = dateStr === todayStr();
     const isSelected = dateStr === APP._selectedDay;
-    const hasActivity = ds.openCash !== 0 || ds.closeCash !== 0 || ds.openQris !== 0 || ds.closeQris !== 0 || ds.orders > 0;
+    const hasActivity = ds.orders > 0 || ds.dayLedger.length > 0;
     calCells += `<div class="cal-cell${isToday?' today':''}${isSelected?' selected':''}" onclick="selectReportDay('${dateStr}')">
       <div class="day-num">${d}</div>
       ${hasActivity ? `<div class="day-pool"><span class="pool-label" style="color:var(--green)">C</span> <span class="pool-val" style="color:var(--text2)">${rp(ds.openCash)}</span> <span style="color:var(--text3)">→</span> <span class="pool-val" style="color:var(--green)">${rp(ds.closeCash)}</span></div><div class="day-pool"><span class="pool-label" style="color:var(--blue)">Q</span> <span class="pool-val" style="color:var(--text2)">${rp(ds.openQris)}</span> <span style="color:var(--text3)">→</span> <span class="pool-val" style="color:var(--blue)">${rp(ds.closeQris)}</span></div>${ds.orders > 0 ? `<div class="day-orders">${ds.orders} order${ds.orders>1?'s':''}</div>` : ''}` : ''}
@@ -2080,13 +2088,15 @@ function renderPackagingSettings() {
     <div class="form-row" style="align-items:end;gap:6px;margin-bottom:6px">
       <div class="form-group" style="width:40px"><label>Icon</label><input class="pkgSetIcon" value="${p.icon}" style="width:40px;text-align:center"></div>
       <div class="form-group" style="flex:1"><label>Name</label><input class="pkgSetName" value="${p.name}" style="width:100%"></div>
-      <div class="form-group" style="width:100px"><label>Price</label><input type="number" class="pkgSetPrice" value="${p.price}" style="width:100%"></div>
+      <div class="form-group" style="width:90px"><label>Price</label><input type="number" class="pkgSetPrice" value="${p.price}" style="width:100%"></div>
+      <div class="form-group" style="width:70px"><label>Stock</label><input type="number" class="pkgSetStock" value="${Number(p.stock)||0}" style="width:100%"></div>
+      <button type="button" class="btn btn-ghost" style="font-size:11px;padding:6px 8px;margin-bottom:12px" onclick="restockPkg(${i})">+Restock</button>
       <button type="button" class="btn btn-ghost" style="color:var(--red);padding:6px 10px;margin-bottom:12px" onclick="removePackagingItem(${i})">×</button>
     </div>`).join('');
 }
 
 function addPackagingItem() {
-  PACKAGING.push({ id: 'pkg_' + Date.now(), name: 'New Item', price: 1000, icon: '📦' });
+  PACKAGING.push({ id: 'pkg_' + Date.now(), name: 'New Item', price: 1000, icon: '📦', stock: 0 });
   renderPackagingSettings();
 }
 
@@ -2095,15 +2105,28 @@ function removePackagingItem(idx) {
   renderPackagingSettings();
 }
 
+function restockPkg(idx) {
+  const amt = prompt('Add stock for ' + PACKAGING[idx].name + ':', '10');
+  if (amt === null) return;
+  const num = Number(amt);
+  if (isNaN(num) || num <= 0) { toast('Invalid number', 'error'); return; }
+  PACKAGING[idx].stock = (Number(PACKAGING[idx].stock) || 0) + num;
+  savePackaging();
+  renderPackagingSettings();
+  toast(PACKAGING[idx].name + ' +' + num + ' (now ' + PACKAGING[idx].stock + ')', 'success');
+}
+
 function savePackagingSettings() {
   const icons = document.querySelectorAll('.pkgSetIcon');
   const names = document.querySelectorAll('.pkgSetName');
   const prices = document.querySelectorAll('.pkgSetPrice');
+  const stocks = document.querySelectorAll('.pkgSetStock');
   PACKAGING = Array.from(names).map((n, i) => ({
     id: PACKAGING[i]?.id || 'pkg_' + Date.now() + i,
     name: n.value.trim(),
     price: Number(prices[i].value) || 0,
     icon: icons[i].value.trim() || '📦',
+    stock: Number(stocks[i].value) || 0,
   }));
   savePackaging();
   toast('Packaging saved', 'success');
