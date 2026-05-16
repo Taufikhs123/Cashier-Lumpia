@@ -1987,7 +1987,7 @@ function showModal(title, bodyHtml, onSave) {
     </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('#modalSaveBtn').onclick = onSave;
-  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+  // Don't close on outside click — only Cancel button closes the modal
 }
 
 function closeModal() {
