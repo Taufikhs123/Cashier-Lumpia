@@ -187,10 +187,10 @@ tr:hover td { background:var(--bg3); }
 .cal-cell.empty:hover { background:transparent; }
 .cal-cell .day-num { font-family:'DM Mono',monospace; font-size:13px; font-weight:700; margin-bottom:4px; }
 .cal-cell.today .day-num { color:var(--amber); }
-.cal-cell .day-sales { font-family:'DM Mono',monospace; font-size:11px; color:var(--green); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.cal-cell .day-sales.negative { color:var(--red); }
+.cal-cell .day-pool { font-family:'DM Mono',monospace; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.4; }
+.cal-cell .day-pool .pool-label { font-family:'Nunito',sans-serif; font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.3px; }
+.cal-cell .day-pool .pool-val { font-size:10px; }
 .cal-cell .day-orders { font-size:10px; color:var(--text3); margin-top:2px; }
-.cal-cell .day-profit { font-family:'DM Mono',monospace; font-size:10px; margin-top:1px; }
 
 /* Day Detail Panel */
 .day-detail { background:var(--bg2); border:1px solid var(--amber-dim); border-radius:var(--radius); padding:20px; margin-bottom:20px; animation:fadeIn .2s; }
@@ -1420,15 +1420,31 @@ function renderReport() {
 }
 
 // ---- Helpers for day stats ----
+function isQrisPayment(payment) {
+  return QRIS_METHODS.includes(payment) || payment === 'QRIS';
+}
+
 function getOpeningBalance(beforeDate) {
   return APP.ledger
     .filter(l => normalizeDate(l.date) < beforeDate)
     .reduce((s, l) => s + Number(l.amount), 0);
 }
 
+function getOpeningBalanceByPool(beforeDate, pool) {
+  return APP.ledger
+    .filter(l => normalizeDate(l.date) < beforeDate && (pool === 'qris' ? isQrisPayment(l.payment) : !isQrisPayment(l.payment)))
+    .reduce((s, l) => s + Number(l.amount), 0);
+}
+
 function getMonthOpeningBalance(monthStr) {
   return APP.ledger
     .filter(l => normalizeDate(l.date) < monthStr + '-01')
+    .reduce((s, l) => s + Number(l.amount), 0);
+}
+
+function getMonthOpeningBalanceByPool(monthStr, pool) {
+  return APP.ledger
+    .filter(l => normalizeDate(l.date) < monthStr + '-01' && (pool === 'qris' ? isQrisPayment(l.payment) : !isQrisPayment(l.payment)))
     .reduce((s, l) => s + Number(l.amount), 0);
 }
 
@@ -1445,7 +1461,14 @@ function getDayStats(date) {
   const dayNet = dayLedger.reduce((s, l) => s + Number(l.amount), 0);
   const opening = getOpeningBalance(date);
   const closing = opening + dayNet;
-  return { date, orders: dayOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, opening, closing, dayNet, dayItems, dayLedger };
+  // Pool-specific balances
+  const openCash = getOpeningBalanceByPool(date, 'cash');
+  const openQris = getOpeningBalanceByPool(date, 'qris');
+  const dayCashNet = dayLedger.filter(l => !isQrisPayment(l.payment)).reduce((s,l) => s + Number(l.amount), 0);
+  const dayQrisNet = dayLedger.filter(l => isQrisPayment(l.payment)).reduce((s,l) => s + Number(l.amount), 0);
+  const closeCash = openCash + dayCashNet;
+  const closeQris = openQris + dayQrisNet;
+  return { date, orders: dayOrders.length, sales: totalSales, cogs, expenses, netProfit, totalIn, totalOut, opening, closing, dayNet, dayItems, dayLedger, openCash, closeCash, openQris, closeQris, dayCashNet, dayQrisNet };
 }
 
 function getMonthStats(monthStr) {
@@ -1492,10 +1515,10 @@ function renderMonthlyCalendar(container) {
     const dateStr = ds.date;
     const isToday = dateStr === todayStr();
     const isSelected = dateStr === APP._selectedDay;
-    const profitColor = ds.netProfit >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+    const hasActivity = ds.openCash !== 0 || ds.closeCash !== 0 || ds.openQris !== 0 || ds.closeQris !== 0 || ds.orders > 0;
     calCells += `<div class="cal-cell${isToday?' today':''}${isSelected?' selected':''}" onclick="selectReportDay('${dateStr}')">
       <div class="day-num">${d}</div>
-      ${ds.orders > 0 ? `<div class="day-sales${ds.netProfit<0?' negative':''}">${rp(ds.sales)}</div><div class="day-profit" style="${profitColor}">${ds.netProfit>=0?'+':''}${rp(ds.netProfit)}</div><div class="day-orders">${ds.orders} order${ds.orders>1?'s':''}</div>` : ''}
+      ${hasActivity ? `<div class="day-pool"><span class="pool-label" style="color:var(--green)">C</span> <span class="pool-val" style="color:var(--text2)">${rp(ds.openCash)}</span> <span style="color:var(--text3)">→</span> <span class="pool-val" style="color:var(--green)">${rp(ds.closeCash)}</span></div><div class="day-pool"><span class="pool-label" style="color:var(--blue)">Q</span> <span class="pool-val" style="color:var(--text2)">${rp(ds.openQris)}</span> <span style="color:var(--text3)">→</span> <span class="pool-val" style="color:var(--blue)">${rp(ds.closeQris)}</span></div>${ds.orders > 0 ? `<div class="day-orders">${ds.orders} order${ds.orders>1?'s':''}</div>` : ''}` : ''}
     </div>`;
   }
 
@@ -1518,6 +1541,14 @@ function renderMonthlyCalendar(container) {
   ms.items.forEach(i => { allItems[i.menu_name] = (allItems[i.menu_name]||0) + Number(i.qty); });
   const sortedItems = Object.entries(allItems).sort((a,b) => b[1]-a[1]);
 
+  // Month pool-specific opening/closing
+  const mOpenCash = getMonthOpeningBalanceByPool(APP._reportMonth, 'cash');
+  const mOpenQris = getMonthOpeningBalanceByPool(APP._reportMonth, 'qris');
+  const mCashNet = ms.ledger.filter(l => !isQrisPayment(l.payment)).reduce((s,l) => s + Number(l.amount), 0);
+  const mQrisNet = ms.ledger.filter(l => isQrisPayment(l.payment)).reduce((s,l) => s + Number(l.amount), 0);
+  const mCloseCash = mOpenCash + mCashNet;
+  const mCloseQris = mOpenQris + mQrisNet;
+
   container.innerHTML = `
     <div class="cal-nav">
       <button class="btn btn-ghost" onclick="changeReportMonth(-1)">&larr; Prev</button>
@@ -1526,9 +1557,17 @@ function renderMonthlyCalendar(container) {
     </div>
     <div class="cal-grid">${calCells}</div>
     <div id="dayDetailPanel"></div>
+    <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:4px">
+      <div class="stat-card" style="border-left:3px solid var(--green)"><div class="label">💵 Cash Opening</div><div class="value" style="color:var(--text1)">${rp(mOpenCash)}</div></div>
+      <div class="stat-card" style="border-left:3px solid var(--green)"><div class="label">💵 Cash Closing</div><div class="value" style="color:var(--green)">${rp(mCloseCash)}</div></div>
+    </div>
+    <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:4px">
+      <div class="stat-card" style="border-left:3px solid var(--blue)"><div class="label">📱 QRIS Opening</div><div class="value" style="color:var(--text1)">${rp(mOpenQris)}</div></div>
+      <div class="stat-card" style="border-left:3px solid var(--blue)"><div class="label">📱 QRIS Closing</div><div class="value" style="color:var(--blue)">${rp(mCloseQris)}</div></div>
+    </div>
     <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
-      <div class="stat-card"><div class="label">Opening Balance</div><div class="value" style="color:var(--blue)">${rp(ms.opening)}</div><div class="sub">Money at start of month</div></div>
-      <div class="stat-card"><div class="label">Closing Balance</div><div class="value" style="color:var(--amber)">${rp(ms.closing)}</div><div class="sub">Money at end of month</div></div>
+      <div class="stat-card"><div class="label">Total Opening</div><div class="value" style="color:var(--text1)">${rp(ms.opening)}</div></div>
+      <div class="stat-card"><div class="label">Total Closing</div><div class="value" style="color:var(--amber)">${rp(ms.closing)}</div></div>
     </div>
     <div class="report-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
       <div class="stat-card"><div class="label">Total Orders</div><div class="value">${ms.orders}</div></div>
@@ -1612,9 +1651,25 @@ function showDayDetail(dateStr) {
   panel.innerHTML = `
     <div class="day-detail">
       <h3>${dayName}</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:var(--bg2);border-radius:10px;padding:12px;border-left:3px solid var(--green)">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:8px">💵 Cash</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--text3)">Opening</span><span class="mono" style="font-size:14px;color:var(--text1)">${rp(s.openCash)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--text3)">Closing</span><span class="mono" style="font-size:14px;color:var(--green);font-weight:700">${rp(s.closeCash)}</span></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Net: <span style="color:${s.dayCashNet>=0?'var(--green)':'var(--red)'}">${s.dayCashNet>=0?'+':''}${rp(s.dayCashNet)}</span></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:12px;border-left:3px solid var(--blue)">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:8px">📱 QRIS</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--text3)">Opening</span><span class="mono" style="font-size:14px;color:var(--text1)">${rp(s.openQris)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--text3)">Closing</span><span class="mono" style="font-size:14px;color:var(--blue);font-weight:700">${rp(s.closeQris)}</span></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Net: <span style="color:${s.dayQrisNet>=0?'var(--blue)':'var(--red)'}">${s.dayQrisNet>=0?'+':''}${rp(s.dayQrisNet)}</span></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="day-detail-item" style="border-left:3px solid var(--text3)"><div class="dl">Total Opening</div><div class="dv" style="color:var(--text1)">${rp(s.opening)}</div></div>
+        <div class="day-detail-item" style="border-left:3px solid var(--amber)"><div class="dl">Total Closing</div><div class="dv" style="color:var(--amber)">${rp(s.closing)}</div></div>
+      </div>
       <div class="day-detail-grid">
-        <div class="day-detail-item" style="border-left:3px solid var(--blue)"><div class="dl">Opening Balance</div><div class="dv" style="color:var(--blue)">${rp(s.opening)}</div></div>
-        <div class="day-detail-item" style="border-left:3px solid var(--amber)"><div class="dl">Closing Balance</div><div class="dv" style="color:var(--amber)">${rp(s.closing)}</div></div>
         <div class="day-detail-item"><div class="dl">Total Sales</div><div class="dv" style="color:var(--amber)">${rp(s.sales)}</div></div>
         <div class="day-detail-item"><div class="dl">Orders</div><div class="dv">${s.orders}</div></div>
         <div class="day-detail-item"><div class="dl">COGS</div><div class="dv" style="color:var(--red)">${rp(s.cogs)}</div></div>
@@ -1649,10 +1704,16 @@ function renderYearlyReport(container) {
   let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
   yearLedger.forEach(l => {
     const amt = Number(l.amount);
-    const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
-    if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
-    else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
+    if (isQrisPayment(l.payment)) { if (amt >= 0) qrisIn += amt; else qrisOut += Math.abs(amt); }
+    else { if (amt >= 0) cashIn += amt; else cashOut += Math.abs(amt); }
   });
+
+  // Year pool-specific opening/closing
+  const yFirstMonth = String(year) + '-01';
+  const yOpenCash = getMonthOpeningBalanceByPool(yFirstMonth, 'cash');
+  const yOpenQris = getMonthOpeningBalanceByPool(yFirstMonth, 'qris');
+  const yCloseCash = yOpenCash + (cashIn - cashOut);
+  const yCloseQris = yOpenQris + (qrisIn - qrisOut);
 
   // Payment breakdown
   const payBreakdown = {};
@@ -1675,9 +1736,17 @@ function renderYearlyReport(container) {
       </div>`).join('')}
     </div>
     <div id="yearMonthDetailPanel"></div>
+    <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:4px">
+      <div class="stat-card" style="border-left:3px solid var(--green)"><div class="label">💵 Cash Opening</div><div class="value" style="color:var(--text1)">${rp(yOpenCash)}</div></div>
+      <div class="stat-card" style="border-left:3px solid var(--green)"><div class="label">💵 Cash Closing</div><div class="value" style="color:var(--green)">${rp(yCloseCash)}</div></div>
+    </div>
+    <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:4px">
+      <div class="stat-card" style="border-left:3px solid var(--blue)"><div class="label">📱 QRIS Opening</div><div class="value" style="color:var(--text1)">${rp(yOpenQris)}</div></div>
+      <div class="stat-card" style="border-left:3px solid var(--blue)"><div class="label">📱 QRIS Closing</div><div class="value" style="color:var(--blue)">${rp(yCloseQris)}</div></div>
+    </div>
     <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">
-      <div class="stat-card"><div class="label">Opening Balance</div><div class="value" style="color:var(--blue)">${rp(monthlyStats[0].opening)}</div><div class="sub">Money at start of year</div></div>
-      <div class="stat-card"><div class="label">Closing Balance</div><div class="value" style="color:var(--amber)">${rp(monthlyStats[11].closing)}</div><div class="sub">Money at end of year</div></div>
+      <div class="stat-card"><div class="label">Total Opening</div><div class="value" style="color:var(--text1)">${rp(monthlyStats[0].opening)}</div></div>
+      <div class="stat-card"><div class="label">Total Closing</div><div class="value" style="color:var(--amber)">${rp(monthlyStats[11].closing)}</div></div>
     </div>
     <div class="report-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
       <div class="stat-card"><div class="label">Total Orders</div><div class="value">${ys.orders}</div></div>
@@ -1734,10 +1803,15 @@ function showYearMonthDetail(monthStr) {
   let cashIn=0, cashOut=0, qrisIn=0, qrisOut=0;
   ms.ledger.forEach(l => {
     const amt = Number(l.amount);
-    const isQris = QRIS_METHODS.includes(l.payment) || l.payment === 'QRIS';
-    if (amt >= 0) { if (isQris) qrisIn += amt; else cashIn += amt; }
-    else { if (isQris) qrisOut += Math.abs(amt); else cashOut += Math.abs(amt); }
+    if (isQrisPayment(l.payment)) { if (amt >= 0) qrisIn += amt; else qrisOut += Math.abs(amt); }
+    else { if (amt >= 0) cashIn += amt; else cashOut += Math.abs(amt); }
   });
+
+  // Pool-specific opening/closing for this month
+  const ymOpenCash = getMonthOpeningBalanceByPool(monthStr, 'cash');
+  const ymOpenQris = getMonthOpeningBalanceByPool(monthStr, 'qris');
+  const ymCloseCash = ymOpenCash + (cashIn - cashOut);
+  const ymCloseQris = ymOpenQris + (qrisIn - qrisOut);
 
   const allItems = {};
   ms.items.forEach(i => { allItems[i.menu_name] = (allItems[i.menu_name]||0) + Number(i.qty); });
@@ -1746,9 +1820,23 @@ function showYearMonthDetail(monthStr) {
   panel.innerHTML = `
     <div class="day-detail">
       <h3>${fullMonthNames[m-1]} ${y}</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div style="background:var(--bg2);border-radius:10px;padding:12px;border-left:3px solid var(--green)">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:8px">💵 Cash</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--text3)">Opening</span><span class="mono" style="font-size:14px;color:var(--text1)">${rp(ymOpenCash)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--text3)">Closing</span><span class="mono" style="font-size:14px;color:var(--green);font-weight:700">${rp(ymCloseCash)}</span></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:12px;border-left:3px solid var(--blue)">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:8px">📱 QRIS</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--text3)">Opening</span><span class="mono" style="font-size:14px;color:var(--text1)">${rp(ymOpenQris)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--text3)">Closing</span><span class="mono" style="font-size:14px;color:var(--blue);font-weight:700">${rp(ymCloseQris)}</span></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="day-detail-item" style="border-left:3px solid var(--text3)"><div class="dl">Total Opening</div><div class="dv" style="color:var(--text1)">${rp(ms.opening)}</div></div>
+        <div class="day-detail-item" style="border-left:3px solid var(--amber)"><div class="dl">Total Closing</div><div class="dv" style="color:var(--amber)">${rp(ms.closing)}</div></div>
+      </div>
       <div class="day-detail-grid">
-        <div class="day-detail-item" style="border-left:3px solid var(--blue)"><div class="dl">Opening Balance</div><div class="dv" style="color:var(--blue)">${rp(ms.opening)}</div></div>
-        <div class="day-detail-item" style="border-left:3px solid var(--amber)"><div class="dl">Closing Balance</div><div class="dv" style="color:var(--amber)">${rp(ms.closing)}</div></div>
         <div class="day-detail-item"><div class="dl">Total Sales</div><div class="dv" style="color:var(--amber)">${rp(ms.sales)}</div></div>
         <div class="day-detail-item"><div class="dl">Orders</div><div class="dv">${ms.orders}</div></div>
         <div class="day-detail-item"><div class="dl">COGS</div><div class="dv" style="color:var(--red)">${rp(ms.cogs)}</div></div>
