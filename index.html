@@ -551,7 +551,7 @@ function getMenuPrice(m, payment) {
 // ---- API ----
 async function apiSync(action, extra={}) {
   const url = APP.scriptUrl;
-  if (!url) { toast('Script URL not set', 'error'); return null; }
+  if (!url) return null; // silently skip if no URL configured
   const payload = { action, branch: APP.branch, password: APP.password, ...extra };
   try {
     const encoded = encodeURIComponent(JSON.stringify(payload));
