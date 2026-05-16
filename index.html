@@ -1183,12 +1183,12 @@ function showRecipeModal(menuId) {
     <div class="form-row recipe-row" style="align-items:end">
       <div class="form-group"><label>Ingredient</label><select class="recIng" style="width:100%">${APP.ingredients.map(i=>`<option value="${i.id}" ${i.id===r.ingredient_id?'selected':''}>${i.name}</option>`).join('')}</select></div>
       <div class="form-group"><label>Amount</label><input type="number" class="recAmt" value="${r.amount}" style="width:80px"></div>
-      <button class="btn btn-ghost" onclick="this.closest('.recipe-row').remove()" style="color:var(--red);margin-bottom:12px">×</button>
+      <button type="button" class="btn btn-ghost" onclick="this.closest('.recipe-row').remove()" style="color:var(--red);margin-bottom:12px">×</button>
     </div>`).join('');
 
   showModal('Recipe: ' + (m?.name||''), `
     <div id="recipeRows">${rows}</div>
-    <button class="btn btn-ghost" onclick="addRecipeRow()" style="margin-bottom:12px">+ Add Ingredient</button>
+    <button type="button" class="btn btn-ghost" onclick="addRecipeRow()" style="margin-bottom:12px">+ Add Ingredient</button>
     <input type="hidden" id="recipeMenuId" value="${menuId}">
   `, saveRecipe);
 }
@@ -1199,7 +1199,7 @@ function addRecipeRow() {
     <div class="form-row recipe-row" style="align-items:end">
       <div class="form-group"><label>Ingredient</label><select class="recIng" style="width:100%">${APP.ingredients.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select></div>
       <div class="form-group"><label>Amount</label><input type="number" class="recAmt" value="0" style="width:80px"></div>
-      <button class="btn btn-ghost" onclick="this.closest('.recipe-row').remove()" style="color:var(--red);margin-bottom:12px">×</button>
+      <button type="button" class="btn btn-ghost" onclick="this.closest('.recipe-row').remove()" style="color:var(--red);margin-bottom:12px">×</button>
     </div>`;
   wrap.insertAdjacentHTML('beforeend', html);
 }
@@ -1981,8 +1981,8 @@ function showModal(title, bodyHtml, onSave) {
       <h3 class="syne">${title}</h3>
       ${bodyHtml}
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-amber" id="modalSaveBtn">Save</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button type="button" class="btn btn-amber" id="modalSaveBtn">Save</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
