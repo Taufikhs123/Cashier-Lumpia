@@ -120,6 +120,18 @@ tr:hover td { background:var(--bg3); }
 .pay-btn.active { border-color:var(--amber); color:var(--amber); background:rgba(240,160,48,.1); }
 .place-order-btn { width:100%; padding:14px; font-size:16px; }
 .cart-note { width:100%; margin-bottom:8px; font-size:13px; }
+.pkg-section { margin-bottom:10px; }
+.pkg-label { font-size:10px; text-transform:uppercase; color:var(--text3); font-family:'DM Mono',monospace; letter-spacing:.5px; margin-bottom:6px; }
+.pkg-grid { display:flex; flex-wrap:wrap; gap:6px; }
+.pkg-chip { display:flex; align-items:center; gap:4px; padding:4px 8px; border-radius:var(--radius-sm); font-size:11px; background:var(--bg); border:1px solid var(--bg4); cursor:pointer; transition:all .15s; user-select:none; }
+.pkg-chip:hover { border-color:var(--amber); }
+.pkg-chip.active { border-color:var(--amber); background:rgba(240,160,48,.1); }
+.pkg-chip .pkg-icon { font-size:13px; }
+.pkg-chip .pkg-name { font-weight:700; white-space:nowrap; }
+.pkg-chip .pkg-price { font-family:'DM Mono',monospace; color:var(--text3); font-size:10px; }
+.pkg-chip .pkg-qty { display:flex; align-items:center; gap:3px; margin-left:2px; }
+.pkg-chip .pkg-qty button { width:18px; height:18px; border-radius:50%; background:var(--bg4); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; padding:0; border:none; color:var(--text1); cursor:pointer; }
+.pkg-chip .pkg-qty span { font-family:'DM Mono',monospace; font-size:11px; min-width:14px; text-align:center; }
 
 /* Stock */
 .stock-actions { display:flex; gap:8px; margin-bottom:16px; }
@@ -304,6 +316,10 @@ tr:hover td { background:var(--bg3); }
             <div class="cart-items" id="cartItems"></div>
             <div class="cart-footer">
               <textarea class="cart-note" id="cartNote" rows="1" placeholder="Note..."></textarea>
+              <div class="pkg-section">
+                <div class="pkg-label">Packaging</div>
+                <div class="pkg-grid" id="packagingGrid"></div>
+              </div>
               <div class="cart-total">
                 <span>Total</span>
                 <span class="amount" id="cartTotal">Rp 0</span>
@@ -435,6 +451,13 @@ tr:hover td { background:var(--bg3); }
             <button class="btn btn-amber" onclick="pushLocalToCloud()" id="pushBtn">Push to Cloud</button>
           </div>
           <div class="settings-section">
+            <h3>Packaging Items</h3>
+            <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Add-ons shown in cart (boxes, bags, etc). Changes saved locally.</p>
+            <div id="packagingSettingsList"></div>
+            <button type="button" class="btn btn-ghost" onclick="addPackagingItem()" style="margin-top:8px">+ Add Item</button>
+            <button type="button" class="btn btn-amber" onclick="savePackagingSettings()" style="margin-top:8px;margin-left:8px">Save Packaging</button>
+          </div>
+          <div class="settings-section">
             <h3>Version & Changelog</h3>
             <p class="mono" style="font-size:14px;color:var(--amber);margin-bottom:12px" id="versionLabel"></p>
             <div class="changelog-list" id="changelogList"></div>
@@ -464,6 +487,16 @@ const DEFAULT_SCRIPT_URL = '';
 const PAYMENT_METHODS = ['Cash','DANA','GoFood','ShopeeFood','GoPay','Grab'];
 const QRIS_METHODS = ['DANA','GoFood','ShopeeFood','GoPay','Grab'];
 
+// Packaging add-ons (editable in Settings)
+let PACKAGING = JSON.parse(localStorage.getItem('mb_packaging') || 'null') || [
+  { id: 'box_s', name: 'Box S', price: 2000, icon: '📦' },
+  { id: 'box_m', name: 'Box M', price: 3000, icon: '📦' },
+  { id: 'box_l', name: 'Box L', price: 5000, icon: '📦' },
+  { id: 'bag_s', name: 'Bag S', price: 500, icon: '🛍️' },
+  { id: 'bag_l', name: 'Bag L', price: 1000, icon: '🛍️' },
+];
+function savePackaging() { localStorage.setItem('mb_packaging', JSON.stringify(PACKAGING)); }
+
 const PAGES = [
   { id:'Cashier',  icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M8 15h2M14 15h2"/></svg>' },
   { id:'Stock',    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>' },
@@ -480,7 +513,7 @@ const APP = {
   branch: '', password: '', scriptUrl: '', taxRate: 0,
   ghRepo: '', ghToken: '',
   menu: [], ingredients: [], recipes: [], orders: [], orderItems: [], ledger: [], stockLog: [],
-  cart: [], selectedPayment: 'Cash', currentPage: 'Cashier',
+  cart: [], packaging: [], selectedPayment: 'Cash', currentPage: 'Cashier',
   _ordering: false, reportTab: 'monthly',
   _reportMonth: null, _reportYear: null, _selectedDay: null, _selectedYearMonth: null,
 };
@@ -790,11 +823,54 @@ function renderCart() {
       <div class="remove-btn" onclick="removeCartItem(${idx})">×</div>`;
     wrap.appendChild(div);
   });
+
+  // Packaging total
+  let pkgTotal = 0;
+  APP.packaging.forEach(p => { pkgTotal += p.price * p.qty; });
+  total += pkgTotal;
+
   if (APP.taxRate > 0) {
     const tax = total * APP.taxRate / 100;
     total += tax;
   }
   document.getElementById('cartTotal').textContent = rp(total);
+  renderPackaging();
+}
+
+function renderPackaging() {
+  const grid = document.getElementById('packagingGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  PACKAGING.forEach(pkg => {
+    const inCart = APP.packaging.find(p => p.id === pkg.id);
+    const qty = inCart ? inCart.qty : 0;
+    const chip = document.createElement('div');
+    chip.className = 'pkg-chip' + (qty > 0 ? ' active' : '');
+    if (qty === 0) {
+      chip.innerHTML = `<span class="pkg-icon">${pkg.icon}</span><span class="pkg-name">${pkg.name}</span><span class="pkg-price">${rp(pkg.price)}</span>`;
+      chip.onclick = () => addPackaging(pkg.id);
+    } else {
+      chip.innerHTML = `<span class="pkg-icon">${pkg.icon}</span><span class="pkg-name">${pkg.name}</span><div class="pkg-qty"><button type="button" onclick="event.stopPropagation();changePkg('${pkg.id}',-1)">−</button><span>${qty}</span><button type="button" onclick="event.stopPropagation();changePkg('${pkg.id}',1)">+</button></div>`;
+    }
+    grid.appendChild(chip);
+  });
+}
+
+function addPackaging(pkgId) {
+  const pkg = PACKAGING.find(p => p.id === pkgId);
+  if (!pkg) return;
+  const existing = APP.packaging.find(p => p.id === pkgId);
+  if (existing) existing.qty++;
+  else APP.packaging.push({ id: pkg.id, name: pkg.name, price: pkg.price, qty: 1 });
+  renderCart();
+}
+
+function changePkg(pkgId, delta) {
+  const item = APP.packaging.find(p => p.id === pkgId);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) APP.packaging = APP.packaging.filter(p => p.id !== pkgId);
+  renderCart();
 }
 
 function changeQty(idx, delta) {
@@ -808,7 +884,7 @@ function removeCartItem(idx) {
   renderCart();
 }
 
-function clearCart() { APP.cart = []; renderCart(); }
+function clearCart() { APP.cart = []; APP.packaging = []; renderCart(); }
 
 function renderPaymentButtons() {
   const wrap = document.getElementById('paymentMethods');
@@ -838,6 +914,11 @@ async function placeOrder() {
     total += price * c.qty;
     return { menu_id: c.menu_id, menu_name: c.menu_name, qty: c.qty, price: price };
   });
+  // Add packaging as order items
+  APP.packaging.forEach(p => {
+    total += p.price * p.qty;
+    items.push({ menu_id: 'PKG_' + p.id, menu_name: p.name, qty: p.qty, price: p.price });
+  });
   if (APP.taxRate > 0) total += total * APP.taxRate / 100;
   total = Math.round(total);
 
@@ -862,6 +943,7 @@ async function placeOrder() {
   saveLocal('stockLog', APP.stockLog);
 
   APP.cart = [];
+  APP.packaging = [];
   document.getElementById('cartNote').value = '';
   renderCart();
   toast('Order placed! ' + rp(total), 'success');
@@ -1965,6 +2047,7 @@ function loadSettingsUI() {
   document.getElementById('versionLabel').textContent = 'v' + APP_VERSION;
   const cl = document.getElementById('changelogList');
   cl.innerHTML = CHANGELOG.map(c => `<div class="changelog-item"><span class="ver">${c.ver}</span> <span style="color:var(--text3)">${c.date}</span><br>${c.msg}</div>`).join('');
+  renderPackagingSettings();
 }
 
 function saveScriptUrl() {
@@ -1988,6 +2071,43 @@ function saveTaxRate() {
   localStorage.setItem('lpos_taxRate', APP.taxRate);
   toast('Tax rate saved', 'success');
   if (APP.scriptUrl) apiSync('saveSettings', { settings: { taxRate: String(APP.taxRate) } });
+}
+
+function renderPackagingSettings() {
+  const wrap = document.getElementById('packagingSettingsList');
+  if (!wrap) return;
+  wrap.innerHTML = PACKAGING.map((p, i) => `
+    <div class="form-row" style="align-items:end;gap:6px;margin-bottom:6px">
+      <div class="form-group" style="width:40px"><label>Icon</label><input class="pkgSetIcon" value="${p.icon}" style="width:40px;text-align:center"></div>
+      <div class="form-group" style="flex:1"><label>Name</label><input class="pkgSetName" value="${p.name}" style="width:100%"></div>
+      <div class="form-group" style="width:100px"><label>Price</label><input type="number" class="pkgSetPrice" value="${p.price}" style="width:100%"></div>
+      <button type="button" class="btn btn-ghost" style="color:var(--red);padding:6px 10px;margin-bottom:12px" onclick="removePackagingItem(${i})">×</button>
+    </div>`).join('');
+}
+
+function addPackagingItem() {
+  PACKAGING.push({ id: 'pkg_' + Date.now(), name: 'New Item', price: 1000, icon: '📦' });
+  renderPackagingSettings();
+}
+
+function removePackagingItem(idx) {
+  PACKAGING.splice(idx, 1);
+  renderPackagingSettings();
+}
+
+function savePackagingSettings() {
+  const icons = document.querySelectorAll('.pkgSetIcon');
+  const names = document.querySelectorAll('.pkgSetName');
+  const prices = document.querySelectorAll('.pkgSetPrice');
+  PACKAGING = Array.from(names).map((n, i) => ({
+    id: PACKAGING[i]?.id || 'pkg_' + Date.now() + i,
+    name: n.value.trim(),
+    price: Number(prices[i].value) || 0,
+    icon: icons[i].value.trim() || '📦',
+  }));
+  savePackaging();
+  toast('Packaging saved', 'success');
+  renderCart();
 }
 
 function exportCSV(type) {
